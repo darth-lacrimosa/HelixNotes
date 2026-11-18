@@ -107,3 +107,68 @@ test('code inside a quote keeps its highlight on the right characters', () => {
 	const ranges = highlightedRanges(s, fence(s));
 	assert.deepEqual(ranges.filter((range) => range.className === 'hljs-keyword').map((range) => s.sliceDoc(range.from, range.to)), ['const']);
 });
+
+test('a callout draws a tinted box, replaces its header and hides the quote marks of its body', () => {
+  const doc = '> [!warning] Careful now\n> first line\n> second line\n\nafter';
+  const s = state(doc);
+  const all = spans(s);
+  const lines = all.filter((span) => span.kind === 'line' && span.className.startsWith('lp-callout'));
+  assert.deepEqual(lines.map((span) => span.className), ['lp-callout lp-callout-first', 'lp-callout', 'lp-callout lp-callout-last']);
+  assert.ok(lines.every((span) => span.group === 'warning'));
+  assert.ok(!all.some((span) => span.className === 'lp-quote'));
+  const header = all.find((span) => span.kind === 'callout');
+  assert.equal(s.sliceDoc(header.from, header.to), '> [!warning] Careful now');
+  assert.equal(header.callout.title, 'Careful now');
+  assert.equal(header.callout.fold, 'none');
+  assert.deepEqual(all.filter((span) => span.kind === 'hide').map((span) => s.sliceDoc(span.from, span.to)), ['> ', '> ']);
+});
+
+test('callout types resolve through aliases and unknown types are custom', () => {
+  const group = (doc) => spans(state(doc)).find((span) => span.kind === 'callout').group;
+  assert.equal(group('> [!TIP]\n> x\n\nafter'), 'tip');
+  assert.equal(group('> [!caution]\n> x\n\nafter'), 'warning');
+  assert.equal(group('> [!decision]\n> x\n\nafter'), 'custom');
+});
+
+test('the header shows its source while the caret is on it', () => {
+  const doc = '> [!note] Title\n> body\n\nafter';
+  assert.ok(!spans(state(doc, 5)).some((span) => span.kind === 'callout'));
+  assert.ok(spans(state(doc, doc.length)).some((span) => span.kind === 'callout'));
+});
+
+test('a closed top-level callout keeps only its header until the caret enters it', () => {
+  const doc = '> [!faq]- Why\n> hidden body\n> more\n\nafter';
+  const away = state(doc, doc.length);
+  const lines = spans(away).filter((span) => span.kind === 'line' && span.className.startsWith('lp-callout'));
+  assert.deepEqual(lines.map((span) => span.className), ['lp-callout lp-callout-first lp-callout-last']);
+  assert.equal(spans(away).find((span) => span.kind === 'callout').callout.fold, 'closed');
+  assert.equal(calloutFoldRanges(away), 1);
+  const inside = state(doc, 20);
+  assert.equal(spans(inside).filter((span) => span.kind === 'line' && span.className.startsWith('lp-callout')).length, 3);
+  assert.equal(calloutFoldRanges(inside), 0);
+  assert.equal(calloutFoldRanges(state(doc, 20, 20, [EditorState.readOnly.of(true)])), 1);
+});
+
+test('nested callouts cannot be folded and ordinary quotes are not callouts', () => {
+  const nested = state('> outer\n>\n> > [!note]- inner\n> > body\n\nafter');
+  assert.equal(spans(nested).find((span) => span.kind === 'callout').callout.fold, 'none');
+  assert.ok(spans(state('> just a quote\n\nafter')).some((span) => span.className === 'lp-quote'));
+  assert.ok(!spans(state('> just a quote\n\nafter')).some((span) => span.kind === 'callout'));
+});
+
+test('quotes inside quotes get a second bar', () => {
+  const classes = spans(state('> outer\n> > inner\n\nafter')).filter((span) => span.kind === 'line').map((span) => span.className);
+  assert.ok(classes.includes('lp-quote'));
+  assert.ok(classes.includes('lp-quote-nested'));
+});
+
+import { calloutFolds } from '../src/lib/editor/source/callouts.ts';
+function calloutFoldRanges(s) {
+  const field = calloutFolds();
+  const folded = EditorState.create({ doc: s.doc.toString(), selection: s.selection, extensions: [markdown({ extensions: sourceMarkdownExtensions }), field, EditorState.readOnly.of(s.readOnly)] });
+  ensureSyntaxTree(folded, folded.doc.length, 5000);
+  const refreshed = folded.update({}).state;
+  const decorations = refreshed.field(field);
+  let count = 0; const cursor = decorations.iter(); while (cursor.value) { count++; cursor.next(); }
+  return count;
+}

@@ -4,6 +4,7 @@ import { syntaxTree } from '@codemirror/language';
 import MarkdownIt from 'markdown-it';
 import { tablePreview } from './table.ts';
 import { codeBlocks } from './code-blocks.ts';
+import { calloutAt, calloutFolds, calloutGroups, CalloutHeader, type Callout } from './callouts.ts';
 
 export interface LivePreviewOptions {
 	resolveImage?: (href: string) => string;
@@ -17,8 +18,10 @@ export interface LivePreviewOptions {
 
 export type PreviewSpan = {
 	from: number; to: number;
-	kind: 'line' | 'mark' | 'hide' | 'image' | 'checkbox' | 'bullet';
+	kind: 'line' | 'mark' | 'hide' | 'image' | 'checkbox' | 'bullet' | 'callout';
 	className?: string; href?: string; label?: string; checked?: boolean;
+	/** Callout colour group (lines) and the callout whose header this span replaces. */
+	group?: string; callout?: Callout;
 };
 const markdown = new MarkdownIt({ html: false });
 
@@ -69,6 +72,21 @@ export function previewSpans(state: EditorState, visible: readonly { from: numbe
 				className: `lp-code-block${number === first ? ' lp-code-first' : ''}${number === last ? ' lp-code-last' : ''}` });
 		}
 	};
+	/** Callout box: every line is tinted; the header becomes icon + title unless the caret is on it. */
+	const headerStarts = new Map<number, number>();
+	const calloutLines = (callout: Callout) => {
+		const end = callout.folded ? callout.firstLine : callout.lastLine;
+		for (let number = callout.firstLine; number <= end; number++) {
+			const line = state.doc.line(number);
+			if (!shown(line.from, line.to)) continue;
+			add({ from: line.from, to: line.from, kind: 'line', group: callout.group,
+				className: `lp-callout${number === callout.firstLine ? ' lp-callout-first' : ''}${number === end ? ' lp-callout-last' : ''}` });
+		}
+		if (!active(callout.headerFrom, callout.headerTo) && shown(callout.headerFrom, callout.headerTo)) {
+			headerStarts.set(callout.firstLine, callout.headerFrom);
+			add({ from: callout.headerFrom, to: callout.headerTo, kind: 'callout', group: callout.group, callout });
+		}
+	};
 	for (const range of visible) {
 		let line = state.doc.lineAt(range.from);
 		while (line.from <= range.to) {
@@ -114,9 +132,20 @@ export function previewSpans(state: EditorState, visible: readonly { from: numbe
 			if (!active(from, to)) for (const mark of node.getChildren(name === 'InlineCode' ? 'CodeMark' : name === 'Strikethrough' ? 'StrikethroughMark' : name === 'Highlight' ? 'HighlightMark' : 'EmphasisMark')) hide(mark.from, mark.to);
 			if (name === 'InlineCode') return false;
 		}
-		if (name === 'Blockquote') lines(from, to, 'lp-quote');
+		if (name === 'Blockquote') {
+			const callout = calloutAt(state, node);
+			if (callout) calloutLines(callout);
+			else {
+				// The first level draws the bar; each deeper level adds one more inside it.
+				let depth = 1;
+				for (let parent = node.parent; parent; parent = parent.parent) if (parent.name === 'Blockquote') depth++;
+				lines(from, to, depth === 1 ? 'lp-quote' : 'lp-quote-nested');
+			}
+		}
 		if (name === 'QuoteMark' && !active(from, to)) {
-			hide(from, to + (state.sliceDoc(to, to + 1) === ' ' ? 1 : 0));
+			// A callout header is replaced as a whole, including its own quote mark.
+			const header = headerStarts.get(state.doc.lineAt(from).number);
+			if (header === undefined || from < header) hide(from, to + (state.sliceDoc(to, to + 1) === ' ' ? 1 : 0));
 		}
 		if (name === 'HorizontalRule' && !active(from, to)) {
 			lines(from, to, 'lp-rule'); hide(from, to); return false;
@@ -261,7 +290,9 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 			const ranges: Range<Decoration>[] = [];
 			for (const span of previewSpans(view.state, view.visibleRanges, view.composing)) {
 				let decoration: Decoration;
-				if (span.kind === 'line') decoration = Decoration.line({ attributes: span.label !== undefined ? { class: span.className!, 'data-lang': span.label || '•••' } : { class: span.className! } });
+				if (span.kind === 'line') decoration = Decoration.line({ attributes: span.label !== undefined ? { class: span.className!, 'data-lang': span.label || '•••' }
+					: span.group ? { class: span.className!, 'data-callout-group': span.group } : { class: span.className! } });
+				else if (span.kind === 'callout') decoration = Decoration.replace({ widget: new CalloutHeader(span.callout!) });
 				else if (span.kind === 'mark') decoration = Decoration.mark({ class: span.className!, attributes: span.href ? { 'data-preview-href': span.href, title: span.href } : undefined });
 				else {
 					let widget: WidgetType | undefined;
@@ -280,7 +311,7 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 			this.atomic = this.decorations.update({ filter: (_from, _to, decoration) => !!decoration.spec.liveAtomic });
 		}
 	}, { decorations: value => value.decorations, provide: plugin => EditorView.atomicRanges.of(view => view.plugin(plugin)?.atomic ?? Decoration.none) });
-	return [plugin, tablePreview({ openLink: options.openLink }), codeBlocks({ copyLabel: options.copyLabel }),EditorView.domEventHandlers({
+	return [plugin, tablePreview({ openLink: options.openLink }), codeBlocks({ copyLabel: options.copyLabel }), calloutFolds(), EditorView.domEventHandlers({
 		mousedown(event, view) {
 			// Handle before CM moves the caret and reveals (removes) the decorated link.
 			if (!(event.ctrlKey || event.metaKey) || event.button !== 0 || !options.openLink) return false;
@@ -325,7 +356,21 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 		'.lp-table th': { background: 'var(--bg-tertiary)', fontWeight: '600' },
 		'.lp-table a': { color: 'var(--accent)', textDecoration: 'underline' },
 		'.lp-table code': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '0.9em', background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', padding: '2px 6px', borderRadius: '4px' },
-		'.lp-quote': { borderLeft: '3px solid var(--accent)', paddingLeft: '12px', color: 'var(--text-secondary)' },
+		'.lp-quote': { borderLeft: '3px solid var(--accent)', paddingLeft: '16px', color: 'var(--text-secondary)' },
+		// A second bar drawn inside the first for quotes within quotes.
+		'.lp-quote-nested': { paddingLeft: '32px', backgroundImage: 'linear-gradient(var(--accent), var(--accent))', backgroundSize: '3px 100%', backgroundPosition: '16px 0', backgroundRepeat: 'no-repeat' },
+		'.lp-callout': { '--cc': 'var(--callout-note)', padding: '0 14px', borderLeft: '3px solid rgb(var(--cc))', borderRight: '1px solid rgba(var(--cc), 0.3)', background: 'rgba(var(--cc), 0.06)', color: 'var(--text-primary)' },
+		...Object.fromEntries(calloutGroups.map(group => [`.lp-callout[data-callout-group="${group}"]`, { '--cc': `var(--callout-${group})` }])),
+		'.lp-callout-first': { padding: '6px 14px', borderTop: '1px solid rgba(var(--cc), 0.3)', borderRadius: '4px 4px 0 0', background: 'rgba(var(--cc), 0.1)', color: 'rgb(var(--cc))', fontWeight: '600' },
+		'.lp-callout-last': { borderBottom: '1px solid rgba(var(--cc), 0.3)', borderRadius: '0 0 4px 4px', paddingBottom: '8px' },
+		'.lp-callout-first.lp-callout-last': { borderRadius: '4px' },
+		'.lp-callout-header': { display: 'inline-flex', alignItems: 'center', gap: '8px', width: '100%', verticalAlign: 'middle' },
+		'.lp-callout-icon': { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', flex: '0 0 auto', color: 'rgb(var(--cc))' },
+		'.lp-callout-title': { flex: '1 1 auto', minWidth: '0', color: 'rgb(var(--cc))', fontWeight: '600' },
+		'.lp-callout-fold': { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', padding: '0', border: 'none', background: 'none', color: 'rgb(var(--cc))', borderRadius: '4px', cursor: 'pointer', transition: 'background 0.15s, transform 0.2s' },
+		'.lp-callout-fold:hover': { background: 'rgba(var(--cc), 0.18)' },
+		'.lp-callout-fold.closed': { transform: 'rotate(-90deg)' },
+		'.lp-callout-folded': { height: '0' },
 		'.lp-rule': { borderBottom: '1px solid var(--border-color)' },
 		'.lp-link': { color: 'var(--accent)', textDecoration: 'underline', cursor: 'text' },
 		'.lp-bullet': { color: 'var(--accent)', fontWeight: '700' },
