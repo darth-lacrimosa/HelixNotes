@@ -5,18 +5,21 @@
 	import { formatCommands, setHeading } from '$lib/editor/source/format';
 	import { groupToolbarButtons, toolbarLabels, type ResolvedToolbarLayout, type ToolbarButtonId } from '$lib/editor/toolbar';
 
-	let { controller, layout, disabled = false }: {
+	export type InsertKind = 'image' | 'file' | 'datetime';
+	let { controller, layout, disabled = false, onInsert }: {
 		controller: SourceController;
 		layout: ResolvedToolbarLayout;
 		disabled?: boolean;
+		onInsert?: (kind: InsertKind) => void;
 	} = $props();
 
-	// Colour and alignment have no Markdown form, and Insert/date/AI open pickers of the rich-text toolbar.
+	// Colour and alignment have no Markdown form, and date/AI belong to the rich-text toolbar.
 	const commands: Partial<Record<ToolbarButtonId, StateCommand>> = formatCommands;
-	const supported = (id: ToolbarButtonId) => id === 'heading' || id in commands;
+	const supported = (id: ToolbarButtonId) => id === 'heading' || (id === 'insert' && !!onInsert) || id in commands;
 	const groups = $derived(groupToolbarButtons([...layout.main, ...layout.more].filter(supported), false));
 
 	const icons: Record<string, string> = {
+		insert: '<path d="M5 12h14"/><path d="M12 5v14"/>',
 		heading: '<path d="M6 12h12"/><path d="M6 20V4"/><path d="M18 20V4"/>',
 		bold: '<path d="M6 12h9a4 4 0 010 8H7a1 1 0 01-1-1V5a1 1 0 011-1h7a4 4 0 010 8"/>',
 		italic: '<line x1="19" x2="10" y1="4" y2="4"/><line x1="14" x2="5" y1="20" y2="20"/><line x1="15" x2="9" y1="4" y2="20"/>',
@@ -43,7 +46,12 @@
 	};
 
 	let headingOpen = $state(false);
+	let insertOpen = $state(false);
 	const headings = [1, 2, 3, 4] as const;
+	function runInsert(kind: InsertKind) {
+		insertOpen = false;
+		if (!disabled) onInsert?.(kind);
+	}
 
 	function run(command: StateCommand) {
 		const view = controller.view;
@@ -61,17 +69,31 @@
 	}
 </script>
 
-<svelte:window onclick={() => (headingOpen = false)} />
+<svelte:window onclick={() => { headingOpen = false; insertOpen = false; }} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions, a11y_interactive_supports_focus -->
 <div class="source-toolbar" role="toolbar" aria-label={$ui('ui.formatting_options')} onmousedown={keepFocus}>
 	{#each groups as group, index}
 		{#if index > 0}<div class="sep"></div>{/if}
 		{#each group as id (id)}
-			{#if id === 'heading'}
+			{#if id === 'insert'}
+				<div class="wrap">
+					<button class="btn" type="button" {disabled} title={$ui('ui.insert')} aria-label={$ui('ui.insert')}
+						aria-haspopup="menu" aria-expanded={insertOpen} onclick={(event) => { event.stopPropagation(); headingOpen = false; insertOpen = !insertOpen; }}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html icons.insert}</svg>
+					</button>
+					{#if insertOpen}
+						<div class="menu" role="menu">
+							<button type="button" role="menuitem" onclick={() => runInsert('image')}>{$ui('ui.image')}</button>
+							<button type="button" role="menuitem" onclick={() => runInsert('file')}>{$ui('ui.file')}</button>
+							<button type="button" role="menuitem" onclick={() => runInsert('datetime')}>{$ui('ui.date_time')}</button>
+						</div>
+					{/if}
+				</div>
+			{:else if id === 'heading'}
 				<div class="wrap">
 					<button class="btn" type="button" {disabled} title={$uiLabel(toolbarLabels.heading)} aria-label={$uiLabel(toolbarLabels.heading)}
-						aria-haspopup="menu" aria-expanded={headingOpen} onclick={(event) => { event.stopPropagation(); headingOpen = !headingOpen; }}>
+						aria-haspopup="menu" aria-expanded={headingOpen} onclick={(event) => { event.stopPropagation(); insertOpen = false; headingOpen = !headingOpen; }}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html icons.heading}</svg>
 					</button>
 					{#if headingOpen}

@@ -712,6 +712,18 @@
 		editor.chain().focus().insertContent(text).run();
 	}
 
+	/** Insert menu of the Markdown (Live / Source) toolbar. Attachments reuse the rich-text upload path. */
+	function insertFromSourceToolbar(kind: 'image' | 'file' | 'datetime') {
+		if (kind === 'image') { openAssetPicker('insert-image-input'); return; }
+		if (kind === 'file') { openAssetPicker('insert-file-input'); return; }
+		const now = new Date();
+		const pad = (n: number) => String(n).padStart(2, '0');
+		const text = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${formatClockTime(now, $appConfig?.time_format)}`;
+		const { from, to } = source.state.selection.main;
+		source.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length }, userEvent: 'input', scrollIntoView: true });
+		source.focus();
+	}
+
 	function getSlashCommands(): SlashCommand[] {
 		return [
 			{ label: 'Heading 1', aliases: ['h1', 'heading1', 'title'], icon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h8M4 4v16M12 4v16M17 12l3-2v8"/></svg>', action: () => editor?.chain().focus().toggleHeading({ level: 1 }).run() },
@@ -8620,7 +8632,7 @@
 		</div>
 
 		{#if $sourceMode && !isMobile && !$viewerNote && !showHistory}
-			<SourceToolbar controller={source} layout={toolbarLayout} disabled={$readOnly || externalOperationBusy} />
+			<SourceToolbar controller={source} layout={toolbarLayout} disabled={$readOnly || externalOperationBusy} onInsert={insertFromSourceToolbar} />
 		{/if}
 
 		{#if editorReady && !$sourceMode && !$viewerNote && !showHistory}
