@@ -14,6 +14,9 @@
 	import SettingsPanel from './SettingsPanel.svelte';
 	import InfoPanel from './InfoPanel.svelte';
 	import TitleBar from './TitleBar.svelte';
+	import TabBar from './TabBar.svelte';
+	import { tabsState, setTabsVault } from '$lib/stores/tabs';
+	import { closeTab, stepTab } from '$lib/utils/tabs';
 	import VaultSwitcher from './VaultSwitcher.svelte';
 	import { createVaultSwitch, activeVaultIdentity, mergeVaultActivation, vaultEventMatches } from '$lib/utils/vault-switch';
 	import { open as openFolderDialog } from '@tauri-apps/plugin-dialog';
@@ -194,6 +197,8 @@
 	const ownerBookmark = get(appConfig)?.active_bookmark_id ?? null;
 	// A fresh layout also reloads clean notes after returning from vault management.
 	activateVaultData(ownerVault, ownerBookmark, true);
+	const releaseTabs = ownerVault ? setTabsVault(ownerVault) : () => {};
+	onDestroy(releaseTabs);
 	let stateReady = false;
 	const unregisterMcpReadiness = isMobileTarget ? () => {} : registerMcpReadiness(() => stateReady && !vaultSwitchBusy && !restoringNote && pendingOpenDrain === null);
 	onDestroy(unregisterMcpReadiness);
@@ -665,6 +670,23 @@
 		}
 	}
 
+	function selectTab(path: string) { void selectNoteFromSwitcher(path); }
+
+	function closeTabAt(index: number) {
+		const current = get(tabsState);
+		const result = closeTab(current, index);
+		if (result.state === current) return;
+		tabsState.set(result.state);
+		// Closing the open note shows its neighbour; the tab for it already exists, so it only activates.
+		if (result.open) selectTab(result.open);
+	}
+
+	function stepToTab(delta: number) {
+		const state = get(tabsState);
+		const index = stepTab(state, delta);
+		if (index >= 0 && index !== state.active) selectTab(state.tabs[index].path);
+	}
+
 	async function selectNoteFromSearch(result: SearchResult, notebook: NotebookEntry | null, canSelect: () => boolean): Promise<boolean> {
 		const { path } = result;
 		const token = beginNavigation();
@@ -980,6 +1002,15 @@
 					return;
 				case 'save':
 					editor?.forceSave();
+					return;
+				case 'close-tab':
+					closeTabAt(get(tabsState).active);
+					return;
+				case 'next-tab':
+					stepToTab(1);
+					return;
+				case 'prev-tab':
+					stepToTab(-1);
 					return;
 				case 'toggle-source':
 					// Live preview <-> Markdown source. Rich text is no longer part of the cycle.
@@ -1598,7 +1629,10 @@
 			{/if}
 
 			<div class="editor-panel">
-				<Editor bind:this={editor} onMoveToTrash={trashOpenNote} onShowTag={showTagNotes} />
+				<TabBar onselect={selectTab} onclose={closeTabAt} />
+				<div class="editor-slot">
+					<Editor bind:this={editor} onMoveToTrash={trashOpenNote} onShowTag={showTagNotes} />
+				</div>
 				{#if $viewMode === 'tasks' && !taskNoteOpened}
 					<div class="tasks-editor-placeholder">
 						<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1686,6 +1720,21 @@
 		overflow: hidden;
 		min-width: 300px;
 		position: relative;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* The editor fills what the tab bar leaves. */
+	.editor-slot {
+		flex: 1;
+		min-height: 0;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+	}
+	.editor-slot > :global(*) {
+		flex: 1 1 auto;
+		min-height: 0;
 	}
 
 	.tasks-editor-placeholder {

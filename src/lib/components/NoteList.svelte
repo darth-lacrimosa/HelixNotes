@@ -44,6 +44,7 @@
 	} from '$lib/api';
 	import { formatRelativeTime, formatDate } from '$lib/utils/time';
 	import { openNoteWindow } from '$lib/utils/window';
+	import { requestNewTab, clearNewTabRequest } from '$lib/stores/tabs';
 	import { encodeNoteDragPaths } from '$lib/utils/note-drag';
 	import { tagIterationKey } from '$lib/utils/tag-styles';
 	import { updateNoteList } from '$lib/utils/note-list-updates';
@@ -584,6 +585,12 @@
 		} catch (e) {
 			console.error('Failed to read note:', e);
 		}
+	}
+
+	/** Open a note in a tab of its own instead of replacing the current tab. */
+	async function openInNewTab(note: NoteEntry) {
+		requestNewTab();
+		try { await selectNote(note); } finally { clearNewTabRequest(); }
 	}
 
 	async function openTask(task: TaskItem) {
@@ -1482,6 +1489,8 @@
 					class:note-drag-below={canCustomReorder && noteDragOver === noteIndex && noteDragFrom !== null && noteDragHalf === 'bottom'}
 					title={$viewMode === 'quickaccess' ? note.path : (getNotebookPath(note) ? `${getNotebookPath(note)}/${note.meta.title}` : note.meta.title)}
 					onclick={(e) => handleNoteClick(e, note)}
+					onmousedown={(e) => { if (e.button === 1) e.preventDefault(); }}
+					onauxclick={(e) => { if (e.button === 1) { e.preventDefault(); void openInNewTab(note); } }}
 					onkeydown={(e) => {
 						if (e.key === 'F2') {
 							e.preventDefault();
@@ -1784,6 +1793,14 @@
 					</svg>
 					{$ui("ui.add_to_quick_access")}
 				</button>
+			{/if}
+			{#if !isMobile}
+			<button onclick={() => { const n = contextMenu!.note; contextMenu = null; void openInNewTab(n); }}>
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M3 8a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M12 11v5"/><path d="M9.5 13.5h5"/>
+				</svg>
+				{$ui("ui.open_in_new_tab")}
+			</button>
 			{/if}
 			<button onclick={() => { const n = contextMenu!.note; contextMenu = null; openNoteWindow(ownerVault!, n.path, n.meta.title); }}>
 				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
