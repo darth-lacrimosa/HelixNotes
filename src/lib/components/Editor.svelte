@@ -56,6 +56,8 @@
 	import { calloutGroup, calloutIcon, calloutLabel, CALLOUT_MENU, transformCalloutBlockquotes, serializeCallout } from '$lib/editor/callouts';
 	import SourceEditor from './SourceEditor.svelte';
 	import SourceToolbar from './SourceToolbar.svelte';
+	import DrawOverlay from './DrawOverlay.svelte';
+	import { isDrawingHref, newDrawingName, svgToBytes } from '$lib/draw/drawing';
 	import type { StateCommand } from '@codemirror/state';
 	import { formatCommands, setHeading } from '$lib/editor/source/format';
 	import type { InsertKind, ToolbarAction } from '$lib/editor/source/toolbar-actions';
@@ -202,7 +204,9 @@
 			scheduleOutlineActive();
 		}
 	}, { paste: event => handleFilePaste(event, false), drop: handleFileDrop, scroll: scheduleOutlineActive });
-	const sourceAssetContext = $derived(`${$activeNotePath ?? ''}|${currentNoteAssetRoot() ?? ''}`);
+	// Raised after a drawing was edited in place: the file name stays, so the preview needs a new address to reload it.
+	let drawingRevision = $state(0);
+	const sourceAssetContext = $derived(`${$activeNotePath ?? ''}|${currentNoteAssetRoot() ?? ''}|${drawingRevision}`);
 	let loadedPath = '';
 	type NoteScrollPosition = { rich: number; source: number };
 	const MAX_NOTE_SCROLL_POSITIONS = 200;
@@ -770,8 +774,53 @@
 		else if (action.kind === 'insert-file') void insertFile(action.file);
 	}
 
+	// ── Drawings (Excalidraw) ──
+	// A drawing is a `.excalidraw.svg` picture in the vault that a note embeds like any image. The canvas runs in a
+	// frame of its own that exists only while the overlay is open.
+	let drawing = $state<{ href: string | null; svg: string | null } | null>(null);
+	function openNewDrawing() {
+		if (!$activeNotePath || $readOnly || $viewerNote || trashPreview) return;
+		drawing = { href: null, svg: null };
+	}
+
+	async function editDrawing(href: string) {
+		if ($readOnly) return;
+		try {
+			const bytes = await readFile(resolveHrefToAbsPath(href));
+			drawing = { href, svg: new TextDecoder().decode(bytes) };
+		} catch (e) {
+			console.error('Failed to open the drawing:', e);
+		}
+	}
+
+	async function saveDrawing(svg: string) {
+		const current = drawing;
+		if (!current) return;
+		const origin = captureOrigin();
+		if (!canInsert(origin)) throw new Error('The note changed, so the drawing was not saved');
+		const bytes = svgToBytes(svg);
+		if (current.href) {
+			await writeBytesTo(resolveHrefToAbsPath(current.href), Uint8Array.from(bytes));
+			drawingRevision++;
+		} else {
+			const relativePath = await saveAttachment(origin.vault!, newDrawingName(), bytes);
+			if (!canInsert(origin)) throw new Error('The note changed, so the drawing was not inserted');
+			const { from, to } = source.state.selection.main;
+			source.replace(`![drawing](${encodeMarkdownPath(relativePath)}) `, from, to);
+		}
+		drawing = null;
+		source.focus();
+	}
+
+	/** Preview address of an image; an edited drawing gets a new one so the picture is fetched again. */
+	function resolvePreviewImage(src: string): string {
+		const url = resolveImageSrc(src);
+		return drawingRevision > 0 && isDrawingHref(src) ? `${url}${url.includes('?') ? '&' : '?'}v=${drawingRevision}` : url;
+	}
+
 	/** Insert menu of the Markdown (Live / Source) toolbar. Attachments reuse the rich-text upload path. */
 	function insertFromSourceToolbar(kind: InsertKind) {
+		if (kind === 'drawing') { openNewDrawing(); return; }
 		if (kind === 'image') { openAssetPicker('insert-image-input'); return; }
 		if (kind === 'file') { openAssetPicker('insert-file-input'); return; }
 		const now = new Date();
@@ -8459,12 +8508,12 @@
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="editor-body" class:source-body={$sourceMode} class:history-hidden={showHistory} onscroll={scheduleOutlineActive} onmousedown={focusEditorFromMargin}>
 				{#if isMobile}
-					<SourceEditor controller={source} readonly={showHistory || $readOnly || !!$viewerNote || externalOperationBusy} visible={$sourceMode} preview={$livePreviewMode} resolveImage={resolveImageSrc} openLink={openPreviewLink} context={sourceAssetContext} mobile />
+					<SourceEditor controller={source} readonly={showHistory || $readOnly || !!$viewerNote || externalOperationBusy} visible={$sourceMode} preview={$livePreviewMode} resolveImage={resolvePreviewImage} openLink={openPreviewLink} editDrawing={editDrawing} context={sourceAssetContext} mobile />
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div class="tiptap-wrapper" class:large-doc={isLargeDoc} style={$sourceMode ? 'display:none' : ''} spellcheck="false" bind:this={editorElement} onerrorcapture={retryFailedImage} onclick={(e) => { closeLinkContextMenu(); handleEditorClick(e); }} onkeydown={(e) => { if (e.key === 'Escape') closeLinkContextMenu(); }}></div>
 				{:else}
 					{#if $sourceMode}
-						<SourceEditor controller={source} readonly={showHistory || $readOnly || !!$viewerNote || externalOperationBusy} numbers={$appConfig?.show_line_numbers ?? false} preview={$livePreviewMode} resolveImage={resolveImageSrc} openLink={openPreviewLink} context={sourceAssetContext} />
+						<SourceEditor controller={source} readonly={showHistory || $readOnly || !!$viewerNote || externalOperationBusy} numbers={$appConfig?.show_line_numbers ?? false} preview={$livePreviewMode} resolveImage={resolvePreviewImage} openLink={openPreviewLink} editDrawing={editDrawing} context={sourceAssetContext} />
 					{:else}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="tiptap-wrapper" class:large-doc={isLargeDoc} spellcheck="false" bind:this={editorElement} onerrorcapture={retryFailedImage} onclick={(e) => { closeLinkContextMenu(); handleEditorClick(e); }} onkeydown={(e) => { if (e.key === 'Escape') closeLinkContextMenu(); }} oncontextmenu={handleEditorContextMenu}></div>
@@ -8794,6 +8843,10 @@
 		<input type="file" id="insert-camera-input" accept="image/*" capture="environment" style="display:none" onchange={handleAssetInput} />
 	{/if}
 	<input type="file" id="insert-file-input" style="display:none" onchange={handleAssetInput} />
+
+	{#if drawing}
+		<DrawOverlay svg={drawing.svg} dark={document.documentElement.classList.contains('dark')} language={$appConfig?.language} onsave={saveDrawing} oncancel={() => { drawing = null; source.focus(); }} />
+	{/if}
 </div>
 
 {#if linkContextMenu}

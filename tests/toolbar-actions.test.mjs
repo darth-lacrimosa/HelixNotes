@@ -10,6 +10,7 @@ test('known toolbar actions are accepted', () => {
     { kind: 'insert', what: 'image' },
     { kind: 'insert', what: 'file' },
     { kind: 'insert', what: 'datetime' },
+    { kind: 'insert', what: 'drawing' },
     { kind: 'insert-file', file: new File(['x'], 'x.png') },
   ]) assert.equal(isToolbarAction(action), true, JSON.stringify(action));
 });

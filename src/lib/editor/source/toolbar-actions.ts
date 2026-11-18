@@ -3,7 +3,7 @@
  * and whoever owns the active editor performs them, so one toolbar can drive either pane of a split view.
  * Actions are plain data so they can cross into the second pane (an iframe) by postMessage.
  */
-export type InsertKind = 'image' | 'file' | 'datetime';
+export type InsertKind = 'image' | 'file' | 'datetime' | 'drawing';
 
 export type ToolbarAction =
 	| { kind: 'command'; id: string }
@@ -18,7 +18,7 @@ export function isToolbarAction(value: unknown): value is ToolbarAction {
 	switch (action.kind) {
 		case 'command': return typeof action.id === 'string';
 		case 'heading': return typeof action.level === 'number' && Number.isInteger(action.level) && action.level >= 0 && action.level <= 6;
-		case 'insert': return action.what === 'image' || action.what === 'file' || action.what === 'datetime';
+		case 'insert': return action.what === 'image' || action.what === 'file' || action.what === 'datetime' || action.what === 'drawing';
 		case 'insert-file': return typeof File !== 'undefined' && action.file instanceof File;
 		default: return false;
 	}

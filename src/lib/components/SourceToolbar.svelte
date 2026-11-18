@@ -80,6 +80,7 @@
 						<div class="menu" role="menu">
 							<button type="button" role="menuitem" onclick={() => runInsert('image')}>{$ui('ui.image')}</button>
 							<button type="button" role="menuitem" onclick={() => runInsert('file')}>{$ui('ui.file')}</button>
+							<button type="button" role="menuitem" onclick={() => runInsert('drawing')}>{$ui('ui.drawing')}</button>
 							<button type="button" role="menuitem" onclick={() => runInsert('datetime')}>{$ui('ui.date_time')}</button>
 						</div>
 					{/if}

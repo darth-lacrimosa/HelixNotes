@@ -3,7 +3,7 @@
 	import { t as ui } from '$lib/i18n';
 	import type { SourceController } from '$lib/editor/source/controller';
 
-	let { controller, readonly = false, numbers = false, visible = true, mobile = false, preview = false, resolveImage, openLink, context = '' }: {
+	let { controller, readonly = false, numbers = false, visible = true, mobile = false, preview = false, resolveImage, openLink, editDrawing, context = '' }: {
 		controller: SourceController;
 		readonly?: boolean;
 		numbers?: boolean;
@@ -12,6 +12,7 @@
 		preview?: boolean;
 		resolveImage?: (href: string) => string;
 		openLink?: (href: string) => void;
+		editDrawing?: (href: string) => void;
 		context?: string;
 	} = $props();
 	let host: HTMLDivElement;
@@ -37,8 +38,8 @@
 	});
 	$effect(() => {
 		const enabled = preview && visible;
-		const options = { resolveImage, openLink, context,
-			checkboxLabel: $ui('livePreview.toggleTask'), imageLabel: $ui('livePreview.editImage'), copyLabel: $ui('ui.copy') };
+		const options = { resolveImage, openLink, editDrawing, context,
+			checkboxLabel: $ui('livePreview.toggleTask'), imageLabel: $ui('livePreview.editImage'), copyLabel: $ui('ui.copy'), drawingLabel: $ui('ui.edit_drawing') };
 		// Renderer callbacks must not subscribe this effect to unrelated note/config stores.
 		untrack(() => controller.setLivePreview(enabled, options));
 	});
@@ -57,6 +58,9 @@
 		user-select: text;
 	}
 	.source-editor.with-line-numbers { max-width: none; }
+
+	/* Drawings are stored with light colours; the dark theme shows them inverted, as Excalidraw itself does. */
+	:global(.dark) .source-editor :global(.lp-drawing img) { filter: invert(93%) hue-rotate(180deg); }
 
 	/* A cleaner page: the note scrolls with the wheel, touchpad and keyboard, without a visible bar. */
 	.source-editor :global(.cm-scroller) { scrollbar-width: none; }

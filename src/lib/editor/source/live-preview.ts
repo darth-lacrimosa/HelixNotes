@@ -4,6 +4,7 @@ import { syntaxTree } from '@codemirror/language';
 import MarkdownIt from 'markdown-it';
 import { tablePreview } from './table.ts';
 import { codeBlocks } from './code-blocks.ts';
+import { isDrawingHref } from '../../draw/drawing.ts';
 import { calloutAt, calloutFolds, calloutGroups, CalloutHeader, type Callout } from './callouts.ts';
 
 export interface LivePreviewOptions {
@@ -12,6 +13,9 @@ export interface LivePreviewOptions {
 	checkboxLabel?: string;
 	imageLabel?: string;
 	copyLabel?: string;
+	/** Open an Excalidraw drawing (a `.excalidraw.svg` image) for editing. */
+	editDrawing?: (href: string) => void;
+	drawingLabel?: string;
 	/** Re-resolve assets after note/vault changes, even if the Markdown is identical. */
 	context?: string;
 }
@@ -244,10 +248,12 @@ class PreviewImage extends WidgetType {
 	readonly src: string;
 	readonly alt: string;
 	readonly label: string;
-	constructor(from: number, to: number, src: string, alt: string, label: string) {
-		super(); this.from = from; this.to = to; this.src = src; this.alt = alt; this.label = label;
+	/** Set for an editable drawing: the Markdown destination, and what to call when the user wants to edit it. */
+	readonly drawing: { href: string; edit?: (href: string) => void; label: string } | null;
+	constructor(from: number, to: number, src: string, alt: string, label: string, drawing: { href: string; edit?: (href: string) => void; label: string } | null = null) {
+		super(); this.from = from; this.to = to; this.src = src; this.alt = alt; this.label = label; this.drawing = drawing;
 	}
-	eq(other: PreviewImage) { return this.from === other.from && this.to === other.to && this.src === other.src && this.alt === other.alt && this.label === other.label; }
+	eq(other: PreviewImage) { return this.from === other.from && this.to === other.to && this.src === other.src && this.alt === other.alt && this.label === other.label && this.drawing?.href === other.drawing?.href; }
 	get estimatedHeight() { return 160; }
 	toDOM(view: EditorView) {
 		const button = document.createElement('button');
@@ -262,6 +268,17 @@ class PreviewImage extends WidgetType {
 		button.onmousedown = event => event.preventDefault();
 		button.onclick = () => { view.dispatch({ selection: EditorSelection.single(Number(button.dataset.sourceFrom), Number(button.dataset.sourceTo)), scrollIntoView: true }); view.focus(); };
 		button.append(image, fallback); image.src = this.src;
+		const drawing = this.drawing;
+		if (drawing) {
+			button.classList.add('lp-drawing');
+			const edit = document.createElement('span');
+			edit.className = 'lp-drawing-edit'; edit.title = drawing.label; edit.setAttribute('role', 'button'); edit.setAttribute('aria-label', drawing.label);
+			edit.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>';
+			edit.onclick = (event) => { event.stopPropagation(); event.preventDefault(); drawing.edit?.(drawing.href); };
+			button.append(edit);
+			// A double click is the quick way in: a single click still selects the Markdown.
+			button.ondblclick = (event) => { event.preventDefault(); drawing.edit?.(drawing.href); };
+		}
 		return button;
 	}
 	updateDOM(dom: HTMLElement) {
@@ -301,7 +318,8 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 					if (span.kind === 'image') {
 						let src: string;
 						try { src = options.resolveImage?.(span.href!) ?? span.href!; } catch { continue; }
-						widget = new PreviewImage(span.from, span.to, src, span.label!, options.imageLabel ?? 'Edit image source');
+						widget = new PreviewImage(span.from, span.to, src, span.label!, options.imageLabel ?? 'Edit image source',
+							isDrawingHref(span.href!) ? { href: span.href!, edit: options.editDrawing, label: options.drawingLabel ?? 'Edit drawing' } : null);
 					}
 					decoration = Decoration.replace({ widget, liveAtomic: true });
 				}
@@ -382,6 +400,10 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 		'.lp-image': { display: 'inline-block', border: '0', padding: '0', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', maxWidth: '100%', verticalAlign: 'middle' },
 		'.lp-image img': { maxWidth: '100%', maxHeight: '360px', objectFit: 'contain', borderRadius: '4px' },
 		'.lp-image:focus-visible': { outline: '2px solid var(--accent)' },
+		'.lp-drawing': { position: 'relative' },
+		'.lp-drawing img': { maxHeight: '520px' },
+		'.lp-drawing-edit': { position: 'absolute', top: '6px', right: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '3px', background: 'var(--bg-primary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', opacity: '0', transition: 'opacity 0.12s', cursor: 'pointer' },
+		'.lp-drawing:hover .lp-drawing-edit, .lp-drawing:focus-visible .lp-drawing-edit': { opacity: '1' },
 		'.lp-image-fallback': { fontSize: '0.9em', padding: '8px', border: '1px dashed var(--border-color)' },
 		'@media (pointer: coarse)': { '.lp-checkbox': { width: '24px', height: '24px' } },
 	})];
