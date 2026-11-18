@@ -160,8 +160,18 @@
 			try { ok = !editor || (await editor.flushSave()); } catch { ok = false; }
 			toParent({ type: 'helix-pane-flushed', id: data.id, ok });
 		};
-		if (embedded) window.addEventListener('message', onParentMessage);
-		removeParentListener = () => window.removeEventListener('message', onParentMessage);
+		// The parent cannot see focus move inside this frame, so say so: the shared toolbar follows it.
+		const announceFocus = () => toParent({ type: 'helix-pane-focus' });
+		if (embedded) {
+			window.addEventListener('message', onParentMessage);
+			window.addEventListener('focusin', announceFocus, true);
+			window.addEventListener('pointerdown', announceFocus, true);
+		}
+		removeParentListener = () => {
+			window.removeEventListener('message', onParentMessage);
+			window.removeEventListener('focusin', announceFocus, true);
+			window.removeEventListener('pointerdown', announceFocus, true);
+		};
 
 		async function initialize() {
 			if (!isMobile && !embedded) {

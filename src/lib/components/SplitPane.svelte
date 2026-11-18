@@ -59,10 +59,17 @@
 			if (data.type === 'helix-pane-title' && typeof data.title === 'string') title = data.title;
 			else if (data.type === 'helix-pane-note' && typeof data.path === 'string') followSplit(data.path);
 			else if (data.type === 'helix-pane-dirty') dirty = !!data.dirty;
+			else if (data.type === 'helix-pane-focus') onfocus?.();
 			else if (data.type === 'helix-pane-flushed' && typeof data.id === 'number') pending.get(data.id)?.(data.ok !== false);
 		};
+		// Focus moving into the frame blurs this window; the frame is then the active element.
+		const onWindowBlur = () => { if (frame && document.activeElement === frame) onfocus?.(); };
 		window.addEventListener('message', onMessage);
-		return () => window.removeEventListener('message', onMessage);
+		window.addEventListener('blur', onWindowBlur);
+		return () => {
+			window.removeEventListener('message', onMessage);
+			window.removeEventListener('blur', onWindowBlur);
+		};
 	});
 
 	async function close() {

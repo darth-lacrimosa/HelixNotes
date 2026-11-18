@@ -9915,14 +9915,22 @@
 		align-items: center;
 		gap: 8px;
 		margin-left: auto;
+		position: relative;
 	}
 
+	/* Sits beside the buttons without taking part in the layout: in a narrow pane a badge that adds width would
+	   push the buttons onto a new row while the note is unsaved and pull them back when it is saved. */
 	.save-indicator {
+		position: absolute;
+		right: 100%;
+		margin-right: 8px;
+		white-space: nowrap;
 		font-size: 11px;
 		color: var(--text-tertiary);
 		background: var(--bg-tertiary);
 		padding: 2px 8px;
 		border-radius: 4px;
+		pointer-events: none;
 	}
 
 	.save-error {
