@@ -499,6 +499,11 @@ export async function writeBytesTo(
   return invoke("write_bytes_to", { destination, data: Array.from(data) });
 }
 
+/** Read a file of the active vault. Used for attachments the fs plugin's scope does not cover. */
+export async function readFileBytes(path: string): Promise<Uint8Array> {
+  return Uint8Array.from(await invoke<number[]>("read_file_bytes", { path }));
+}
+
 export async function copyPngToClipboard(data: Uint8Array): Promise<void> {
   return invoke("copy_png_to_clipboard", { data: Array.from(data) });
 }

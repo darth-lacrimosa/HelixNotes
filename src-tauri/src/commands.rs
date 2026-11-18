@@ -3935,6 +3935,44 @@ pub fn copy_file_to(app: AppHandle, source: String, destination: String) -> Resu
     Ok(())
 }
 
+/// Largest file `read_file_bytes` returns. It serves small attachments such as drawings, not arbitrary media.
+const MAX_READ_FILE_BYTES: u64 = 16 * 1024 * 1024;
+
+fn read_file_limited(path: &Path, max: u64) -> Result<Vec<u8>, String> {
+    let metadata = std::fs::metadata(path).map_err(|e| format!("Failed to read file: {}", e))?;
+    if !metadata.is_file() {
+        return Err("Not a file".to_string());
+    }
+    if metadata.len() > max {
+        return Err(format!("File is larger than {} bytes", max));
+    }
+    std::fs::read(path).map_err(|e| format!("Failed to read file: {}", e))
+}
+
+/// Read a file of the active vault (or one the user selected). The fs plugin cannot do this for vault attachments:
+/// only the asset protocol scope is extended for them, so the editor reads them through this checked command.
+#[tauri::command]
+pub fn read_file_bytes(app: AppHandle, path: String) -> Result<Vec<u8>, String> {
+    ensure_readable_path(&app, Path::new(&path))?;
+    read_file_limited(Path::new(&path), MAX_READ_FILE_BYTES)
+}
+
+#[cfg(test)]
+mod read_file_limit_tests {
+    use super::read_file_limited;
+
+    #[test]
+    fn small_files_are_read_and_large_files_or_directories_are_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let small = dir.path().join("drawing.excalidraw.svg");
+        std::fs::write(&small, b"<svg/>").unwrap();
+        assert_eq!(read_file_limited(&small, 1024).unwrap(), b"<svg/>".to_vec());
+        assert!(read_file_limited(&small, 3).unwrap_err().contains("larger"));
+        assert!(read_file_limited(dir.path(), 1024).unwrap_err().contains("Not a file"));
+        assert!(read_file_limited(&dir.path().join("missing"), 1024).is_err());
+    }
+}
+
 #[tauri::command]
 pub fn write_bytes_to(app: AppHandle, destination: String, data: Vec<u8>) -> Result<(), String> {
     ensure_writable_path(&app, Path::new(&destination))?;

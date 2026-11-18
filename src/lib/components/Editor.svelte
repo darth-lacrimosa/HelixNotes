@@ -36,7 +36,7 @@
 	import { openFile, openUrl, copyFileTo, copyImageToClipboard as copyImageToClipboardCmd, writeBytesTo, copyPngToClipboard, copyTextToClipboard } from '$lib/api';
 	import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 	import { activeNote, activeNotePath, appConfig, editorDirty, sourceMode, livePreviewMode, focusMode, readOnly, quickAccessPaths, notes, navHistory, viewerNote, viewMode, notebooks, outlineWidth } from '$lib/stores/app';
-	import { saveNote, importNote, createNote, saveImage, saveAttachment, readClipboardImage, readClipboardContents, addQuickAccess, removeQuickAccess, getQuickAccess, getNoteVersions, getNoteVersionContent, createVersion, aiAsk, getAllNoteTitles, readNote, renameNote, setToolbarLayout } from '$lib/api';
+	import { readFileBytes, saveNote, importNote, createNote, saveImage, saveAttachment, readClipboardImage, readClipboardContents, addQuickAccess, removeQuickAccess, getQuickAccess, getNoteVersions, getNoteVersionContent, createVersion, aiAsk, getAllNoteTitles, readNote, renameNote, setToolbarLayout } from '$lib/api';
 	import type { NoteContent, VersionEntry, AiStreamEvent, NoteTitleEntry, TaskItem as TaskRecord, FileEvent, SearchTarget, ToolbarLayout } from '$lib/types';
 	import { listen } from '@tauri-apps/api/event';
 	import { debounce } from '$lib/utils/debounce';
@@ -795,7 +795,7 @@
 	async function editDrawing(href: string) {
 		if ($readOnly) return;
 		try {
-			const bytes = await readFile(resolveHrefToAbsPath(href));
+			const bytes = await readFileBytes(resolveHrefToAbsPath(href));
 			drawing = { href, svg: new TextDecoder().decode(bytes) };
 		} catch (e) {
 			console.error('Failed to open the drawing:', e);

@@ -259,6 +259,7 @@ pub fn run() {
             commands::open_url,
             commands::copy_file_to,
             commands::write_bytes_to,
+            commands::read_file_bytes,
             commands::copy_png_to_clipboard,
             commands::create_backup,
             commands::list_backups,
