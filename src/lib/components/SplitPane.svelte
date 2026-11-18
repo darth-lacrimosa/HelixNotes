@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { t as ui } from '$lib/i18n';
 	import { splitState, closeSplit, followSplit } from '$lib/stores/split';
-	import { titleFromPath } from '$lib/utils/tabs';
+	import { tabsState } from '$lib/stores/tabs';
 
 	import { isToolbarAction, type ToolbarAction } from '$lib/editor/source/toolbar-actions';
 
@@ -10,8 +10,6 @@
 
 	let frame = $state<HTMLIFrameElement>();
 	let src = $state('');
-	let title = $state('');
-	let dirty = $state(false);
 	let shownNonce = -1;
 	let seq = 0;
 	const pending = new Map<number, (ok: boolean) => void>();
@@ -45,8 +43,6 @@
 		const path = state.path;
 		void (async () => {
 			if (src) await flush();
-			title = titleFromPath(path);
-			dirty = false;
 			src = urlFor(path);
 		})();
 	});
@@ -54,12 +50,12 @@
 	onMount(() => {
 		const onMessage = (event: MessageEvent) => {
 			if (event.origin !== window.location.origin || !frame || event.source !== frame.contentWindow) return;
-			const data = event.data as { type?: string; title?: string; path?: string; dirty?: boolean; id?: number; ok?: boolean } | null;
+			const data = event.data as { type?: string; path?: string; id?: number; ok?: boolean } | null;
 			if (!data) return;
-			if (data.type === 'helix-pane-title' && typeof data.title === 'string') title = data.title;
-			else if (data.type === 'helix-pane-note' && typeof data.path === 'string') followSplit(data.path);
-			else if (data.type === 'helix-pane-dirty') dirty = !!data.dirty;
+			if (data.type === 'helix-pane-note' && typeof data.path === 'string') followSplit(data.path);
 			else if (data.type === 'helix-pane-focus') onfocus?.();
+			// Ctrl+W typed inside the pane closes the pane, as it closes a tab in the main editor.
+			else if (data.type === 'helix-pane-close') void close();
 			else if (data.type === 'helix-pane-flushed' && typeof data.id === 'number') pending.get(data.id)?.(data.ok !== false);
 		};
 		// Focus moving into the frame blurs this window; the frame is then the active element.
@@ -72,7 +68,8 @@
 		};
 	});
 
-	async function close() {
+	/** Save what the pane holds, then close it. */
+	export async function close() {
 		if (!(await flush())) return;
 		closeSplit();
 	}
@@ -81,15 +78,10 @@
 {#if $splitState}
 	<!-- Focus entering the frame (a click or Tab into the note) makes this the pane the toolbar acts on. -->
 	<section class="split-pane" aria-label={$ui('ui.split_view')} onfocusin={() => onfocus?.()}>
-		<div class="split-header">
-			<span class="split-title" title={$splitState.path}>{title}</span>
-			{#if dirty}<span class="split-dirty" title={$ui('ui.unsaved_changes')}></span>{/if}
-			<button class="split-close" type="button" aria-label={$ui('ui.close_split_view')} title={$ui('ui.close_split_view')} onclick={close}>
-				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-			</button>
-		</div>
+		<!-- Keeps the line above the editors unbroken while the main editor shows its tab bar. -->
+		{#if $tabsState.tabs.length > 1}<div class="split-strip"></div>{/if}
 		{#if src}
-			<iframe bind:this={frame} {src} title={title}></iframe>
+			<iframe bind:this={frame} {src} title={$ui('ui.split_view')}></iframe>
 		{/if}
 	</section>
 {/if}
@@ -103,35 +95,12 @@
 		border-left: 1px solid var(--border-color);
 		background: var(--bg-editor, var(--bg-primary));
 	}
-	.split-header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
+	.split-strip {
 		flex-shrink: 0;
-		box-sizing: border-box;
 		height: var(--pane-header-h);
-		padding: 0 6px 0 14px;
 		background: var(--bg-primary);
 		box-shadow: inset 0 -1px 0 var(--border-light);
-		color: var(--text-primary);
-		font-size: 13px;
 	}
-	.split-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.split-dirty { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
-	.split-close {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 22px;
-		height: 22px;
-		padding: 0;
-		border: none;
-		border-radius: 2px;
-		background: none;
-		color: var(--text-secondary);
-		cursor: pointer;
-	}
-	.split-close:hover { background: var(--bg-hover); color: var(--text-primary); }
 	iframe { flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg-editor, var(--bg-primary)); }
 	/* While a divider is being dragged the pointer must not be swallowed by the frame. */
 	:global(body.resizing) iframe { pointer-events: none; }

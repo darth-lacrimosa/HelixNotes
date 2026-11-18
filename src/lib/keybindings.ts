@@ -44,7 +44,7 @@ export const ACTIONS: ActionDef[] = [
   { id: "nav-forward", label: "Go forward", group: "Navigation", default: { alt: true, code: "ArrowRight" } },
   { id: "next-tab", label: "Next tab", group: "Navigation", default: { mod: true, code: "Tab" } },
   { id: "prev-tab", label: "Previous tab", group: "Navigation", default: { mod: true, shift: true, code: "Tab" } },
-  { id: "close-tab", label: "Close tab", group: "Navigation", default: { mod: true, code: "KeyW" } },
+  { id: "close-tab", label: "Close tab / split pane", group: "Navigation", default: { mod: true, code: "KeyW" } },
 ];
 
 export const DEFAULT_BINDINGS: Record<string, Binding> = Object.fromEntries(

@@ -1046,7 +1046,9 @@
 					void editor?.copyNote();
 					return;
 				case 'close-tab':
-					closeTabAt(get(tabsState).active);
+					// Closes what you are working in: the split pane when that is the active one, else the tab.
+					if (activePane === 'split' && $splitState && splitPane) void splitPane.close();
+					else closeTabAt(get(tabsState).active);
 					return;
 				case 'next-tab':
 					stepToTab(1);

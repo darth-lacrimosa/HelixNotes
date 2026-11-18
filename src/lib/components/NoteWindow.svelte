@@ -64,16 +64,14 @@
 	});
 	$effect(() => {
 		const title = $activeNote?.meta.title;
-		if (!title || disposed) return;
-		if (embedded) toParent({ type: 'helix-pane-title', title });
-		else void appWindow.setTitle(`${title} - HelixNotes`);
+		if (!title || disposed || embedded) return;
+		void appWindow.setTitle(`${title} - HelixNotes`);
 	});
 	// The pane can follow a link to another note; the parent remembers which one it shows.
 	$effect(() => {
 		const path = $activeNotePath;
 		if (path && !disposed) toParent({ type: 'helix-pane-note', path });
 	});
-	$effect(() => { toParent({ type: 'helix-pane-dirty', dirty: $editorDirty }); });
 
 
 	let lastMouseDown = 0;
@@ -104,6 +102,10 @@
 		if (action === 'save') {
 			e.preventDefault();
 			editor?.forceSave();
+		} else if (action === 'close-tab' && embedded) {
+			// The pane is closed by the main window, which owns the layout.
+			e.preventDefault();
+			toParent({ type: 'helix-pane-close' });
 		} else if (action === 'copy-note') {
 			e.preventDefault();
 			void editor?.copyNote();
