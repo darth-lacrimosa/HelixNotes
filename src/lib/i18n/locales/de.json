@@ -496,6 +496,7 @@
   "ui.pin_note_ae126e": "Notiz anheften",
   "ui.open_in_new_window": "In neuem Fenster öffnen",
   "ui.show_in_file_manager": "Im Dateimanager anzeigen",
+  "ui.copy_full_path": "Vollständigen Pfad kopieren",
   "ui.rename": "Umbenennen",
   "ui.duplicate_note": "Notiz duplizieren",
   "ui.unfile_note": "Notiz aus Notizbuch entfernen",

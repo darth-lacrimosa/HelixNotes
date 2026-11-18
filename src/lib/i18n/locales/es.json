@@ -496,6 +496,7 @@
   "ui.pin_note_ae126e": "Fijar nota",
   "ui.open_in_new_window": "Abrir en una ventana nueva",
   "ui.show_in_file_manager": "Mostrar en el gestor de archivos",
+  "ui.copy_full_path": "Copiar ruta completa",
   "ui.rename": "Renombrar",
   "ui.duplicate_note": "Duplicar nota",
   "ui.unfile_note": "Sacar nota del cuaderno",

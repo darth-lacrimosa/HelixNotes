@@ -516,6 +516,7 @@
   "ui.pin_note_ae126e": "Pin Note",
   "ui.open_in_new_window": "Open in New Window",
   "ui.show_in_file_manager": "Show in File Manager",
+  "ui.copy_full_path": "Copy Full Path",
   "ui.rename": "Rename",
   "ui.duplicate_note": "Duplicate Note",
   "ui.unfile_note": "Unfile Note",

@@ -265,6 +265,7 @@
   "ui.pin_note_ae126e": "Закрепить заметку",
   "ui.open_in_new_window": "Открыть в новом окне",
   "ui.show_in_file_manager": "Показать в файловом менеджере",
+  "ui.copy_full_path": "Скопировать полный путь",
   "ui.rename": "Переименовать",
   "ui.duplicate_note": "Создать копию заметки",
   "ui.unfile_note": "Убрать заметку из блокнота",

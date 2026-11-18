@@ -39,7 +39,8 @@
 		reorderQuickAccess,
 		moveNote,
 		createDailyNote,
-		revealFile
+		revealFile,
+		copyTextToClipboard
 	} from '$lib/api';
 	import { formatRelativeTime, formatDate } from '$lib/utils/time';
 	import { openNoteWindow } from '$lib/utils/window';
@@ -1796,6 +1797,12 @@
 					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
 				</svg>
 				{$ui("ui.show_in_file_manager")}
+			</button>
+			<button onclick={async () => { const n = contextMenu!.note; contextMenu = null; try { await copyTextToClipboard(n.path); } catch (e) { console.error('Failed to copy the note path:', e); } }}>
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+				</svg>
+				{$ui("ui.copy_full_path")}
 			</button>
 			{/if}
 			<button onclick={() => startRename(contextMenu!.note)}>
