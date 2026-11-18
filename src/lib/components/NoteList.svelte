@@ -45,6 +45,7 @@
 	import { formatRelativeTime, formatDate } from '$lib/utils/time';
 	import { openNoteWindow } from '$lib/utils/window';
 	import { requestNewTab, clearNewTabRequest } from '$lib/stores/tabs';
+	import { openInSplit } from '$lib/stores/split';
 	import { encodeNoteDragPaths } from '$lib/utils/note-drag';
 	import { tagIterationKey } from '$lib/utils/tag-styles';
 	import { updateNoteList } from '$lib/utils/note-list-updates';
@@ -1800,6 +1801,12 @@
 					<path d="M3 8a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M12 11v5"/><path d="M9.5 13.5h5"/>
 				</svg>
 				{$ui("ui.open_in_new_tab")}
+			</button>
+			<button onclick={() => { const n = contextMenu!.note; contextMenu = null; openInSplit(n.path); }}>
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>
+				</svg>
+				{$ui("ui.open_in_split_view")}
 			</button>
 			{/if}
 			<button onclick={() => { const n = contextMenu!.note; contextMenu = null; openNoteWindow(ownerVault!, n.path, n.meta.title); }}>

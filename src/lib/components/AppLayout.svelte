@@ -15,6 +15,8 @@
 	import InfoPanel from './InfoPanel.svelte';
 	import TitleBar from './TitleBar.svelte';
 	import TabBar from './TabBar.svelte';
+	import SplitPane from './SplitPane.svelte';
+	import { splitState, setSplitVault } from '$lib/stores/split';
 	import { tabsState, setTabsVault } from '$lib/stores/tabs';
 	import { closeTab, stepTab } from '$lib/utils/tabs';
 	import VaultSwitcher from './VaultSwitcher.svelte';
@@ -199,6 +201,9 @@
 	activateVaultData(ownerVault, ownerBookmark, true);
 	const releaseTabs = ownerVault ? setTabsVault(ownerVault) : () => {};
 	onDestroy(releaseTabs);
+	const releaseSplit = ownerVault ? setSplitVault(ownerVault) : () => {};
+	onDestroy(releaseSplit);
+	let splitPane = $state<SplitPane>();
 	let stateReady = false;
 	const unregisterMcpReadiness = isMobileTarget ? () => {} : registerMcpReadiness(() => stateReady && !vaultSwitchBusy && !restoringNote && pendingOpenDrain === null);
 	onDestroy(unregisterMcpReadiness);
@@ -551,6 +556,7 @@
 		if (vaultSwitchBusy) return false;
 		const token = beginNavigation();
 		if (editor && !(await editor.flushSave())) return false;
+		if (splitPane && !(await splitPane.flush())) return false;
 		if (!navigationIsCurrent(token)) return false;
 		await persistVaultState();
 		return navigationIsCurrent(token);
@@ -1154,6 +1160,7 @@
 				if (!ownerIsCurrent()) { await cancelWindowClose(); return; }
 				try {
 					if (editor && !(await editor.flushSave())) { await cancelWindowClose(); return; }
+					if (splitPane && !(await splitPane.flush())) { await cancelWindowClose(); return; }
 					if (!ownerIsCurrent()) { await cancelWindowClose(); return; }
 					await persistVaultState();
 					if (!ownerIsCurrent()) { await cancelWindowClose(); return; }
@@ -1629,10 +1636,13 @@
 			{/if}
 
 			<div class="editor-panel">
-				<TabBar onselect={selectTab} onclose={closeTabAt} />
-				<div class="editor-slot">
-					<Editor bind:this={editor} onMoveToTrash={trashOpenNote} onShowTag={showTagNotes} />
+				<div class="editor-main">
+					<TabBar onselect={selectTab} onclose={closeTabAt} />
+					<div class="editor-slot">
+						<Editor bind:this={editor} onMoveToTrash={trashOpenNote} onShowTag={showTagNotes} />
+					</div>
 				</div>
+				{#if ownerVault}<SplitPane bind:this={splitPane} vault={ownerVault} />{/if}
 				{#if $viewMode === 'tasks' && !taskNoteOpened}
 					<div class="tasks-editor-placeholder">
 						<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1720,6 +1730,14 @@
 		overflow: hidden;
 		min-width: 300px;
 		position: relative;
+		display: flex;
+		flex-direction: row;
+	}
+
+	/* The main editor column; with a split open it shares the width equally with the second pane. */
+	.editor-main {
+		flex: 1 1 0;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
 	}

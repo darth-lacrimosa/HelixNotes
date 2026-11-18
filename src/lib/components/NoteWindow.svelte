@@ -25,8 +25,13 @@
 	import { beginNoteNavigation, isCurrentNoteNavigation, cancelNoteNavigation } from '$lib/utils/note-navigation';
 	import { mcpBusy } from '$lib/utils/mcp-editor';
 
-	let { notePath, vaultPath }: { notePath: string; vaultPath: string | null } = $props();
+	// `embedded` is a split-view pane: the same editor inside an iframe of the main window, with no window
+	// chrome of its own. It reports to its parent by postMessage and does not touch the native window.
+	let { notePath, vaultPath, embedded = false }: { notePath: string; vaultPath: string | null; embedded?: boolean } = $props();
 	const ownerVault = untrack(() => vaultPath);
+	const toParent = (message: Record<string, unknown>) => {
+		if (embedded) window.parent.postMessage(message, window.location.origin);
+	};
 
 	const appWindow = getCurrentWindow();
 	const appWebview = getCurrentWebview();
@@ -37,6 +42,7 @@
 	let unlistenClose: (() => void) | null = null;
 	let unlistenVaultRestored: (() => void) | null = null;
 	let removeMobileFlushListeners: (() => void) | null = null;
+	let removeParentListener: (() => void) | null = null;
 	let maximized = $state(false);
 	let loadError = $state<string | null>(null);
 	let disposed = false;
@@ -50,14 +56,23 @@
 	}
 
 	$effect(() => {
+		if (embedded) return;
 		checkMaximized();
 		const unlisten = appWindow.onResized(() => checkMaximized());
 		return () => { unlisten.then(fn => fn()); };
 	});
 	$effect(() => {
 		const title = $activeNote?.meta.title;
-		if (title && !disposed) void appWindow.setTitle(`${title} - HelixNotes`);
+		if (!title || disposed) return;
+		if (embedded) toParent({ type: 'helix-pane-title', title });
+		else void appWindow.setTitle(`${title} - HelixNotes`);
 	});
+	// The pane can follow a link to another note; the parent remembers which one it shows.
+	$effect(() => {
+		const path = $activeNotePath;
+		if (path && !disposed) toParent({ type: 'helix-pane-note', path });
+	});
+	$effect(() => { toParent({ type: 'helix-pane-dirty', dirty: $editorDirty }); });
 
 
 	let lastMouseDown = 0;
@@ -95,6 +110,8 @@
 	}
 
 	async function applyUiScale(scale: number) {
+		// The main window's zoom already covers an embedded pane.
+		if (embedded) return;
 		try {
 			await appWebview.setZoom(scale);
 		} catch (e) {
@@ -125,8 +142,20 @@
 			};
 		}
 
+		// The parent asks a pane to save before the window closes or the pane is replaced.
+		const onParentMessage = async (event: MessageEvent) => {
+			if (!embedded || event.source !== window.parent || event.origin !== window.location.origin) return;
+			const data = event.data as { type?: string; id?: number } | null;
+			if (data?.type !== 'helix-pane-flush') return;
+			let ok = true;
+			try { ok = !editor || (await editor.flushSave()); } catch { ok = false; }
+			toParent({ type: 'helix-pane-flushed', id: data.id, ok });
+		};
+		if (embedded) window.addEventListener('message', onParentMessage);
+		removeParentListener = () => window.removeEventListener('message', onParentMessage);
+
 		async function initialize() {
-			if (!isMobile) {
+			if (!isMobile && !embedded) {
 				const closeListener = await appWindow.onCloseRequested(async (event) => {
 					event.preventDefault();
 					if (!isCurrentOwner()) { await cancelWindowClose(); return; }
@@ -245,6 +274,7 @@
 		unlistenFileChange?.();
 		unlistenVaultRestored?.();
 		removeMobileFlushListeners?.();
+		removeParentListener?.();
 		unlistenUiScale?.();
 		unlistenClose?.();
 	});
@@ -253,6 +283,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="note-window">
+	{#if !embedded}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="nw-titlebar" class:macos={isMac} onmousedown={handleMouseDown}>
 		<div class="nw-titlebar-brand">
@@ -313,6 +344,7 @@
 		</div>
 		{/if}
 	</div>
+	{/if}
 
 	{#if loadError}
 		<div class="nw-error">

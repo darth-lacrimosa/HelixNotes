@@ -28,9 +28,11 @@
 	let pageDisposed = false;
 
 	const STARTUP_REVEAL_FAILSAFE_MS = 4000;
+	// A split-view pane (an iframe of the main window): it owns no native window and no MCP bridge.
+	const embedded = new URLSearchParams(window.location.search).get('pane') === '1';
 
 	async function revealStartupWindow() {
-		if (isMobile || startupWindowRevealed) return;
+		if (isMobile || embedded || startupWindowRevealed) return;
 		await tick();
 		// Force style resolution while the native window is still hidden so its first
 		// compositor frame already uses the selected theme.
@@ -151,7 +153,7 @@
 	}
 
 	onMount(async () => {
-		if (!isMobile) {
+		if (!isMobile && !embedded) {
 			startupRevealTimer = setTimeout(() => void revealStartupWindow(), STARTUP_REVEAL_FAILSAFE_MS);
 		}
 		// Check for note window mode
@@ -162,7 +164,7 @@
 			noteWindowVault = params.get('vault');
 		}
 
-		if (!isMobile) {
+		if (!isMobile && !embedded) {
 			try {
 				const { installMcpWindow } = await import('$lib/mcp');
 				const dispose = await installMcpWindow(() => !loading && (noteWindowPath ? !!$activeNotePath : !$vaultReady || mcpWindowReady()));
@@ -335,7 +337,7 @@
 		<div class="spinner"></div>
 	</div>
 {:else if noteWindowPath}
-	<NoteWindow notePath={noteWindowPath} vaultPath={noteWindowVault} />
+	<NoteWindow notePath={noteWindowPath} vaultPath={noteWindowVault} {embedded} />
 {:else if $vaultReady}
 	{#key JSON.stringify([$appConfig?.active_vault ?? null, $appConfig?.active_bookmark_id ?? null])}
 		<AppLayout />
