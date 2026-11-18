@@ -4,7 +4,6 @@
 	import ThemedSelect from './ThemedSelect.svelte';
 	let { id, disabled = false }: { id: string; disabled?: boolean } = $props();
 	const options = $derived([
-		{ value: 'rich', label: $t('editorMode.rich') },
 		{ value: 'live', label: $t('editorMode.live') },
 		{ value: 'source', label: $t('editorMode.source') },
 	]);

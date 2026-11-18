@@ -36,7 +36,7 @@ export const ACTIONS: ActionDef[] = [
   { id: "toggle-theme", label: "Toggle dark / light theme", group: "Interface", default: { mod: true, shift: true, code: "KeyN" } },
   { id: "toggle-focus", label: "Toggle focus mode", group: "Interface", default: { mod: true, shift: true, code: "KeyE" } },
   { id: "toggle-readonly", label: "Toggle read-only", group: "Interface", default: { mod: true, shift: true, code: "KeyR" } },
-  { id: "toggle-source", label: "Toggle source / WYSIWYG", group: "Interface", default: { mod: true, shift: true, code: "KeyM" } },
+  { id: "toggle-source", label: "Toggle live preview / source", group: "Interface", default: { mod: true, shift: true, code: "KeyM" } },
   { id: "fullscreen", label: "Toggle fullscreen", group: "Interface", default: { code: "F11" } },
 
   { id: "nav-back", label: "Go back", group: "Navigation", default: { alt: true, code: "ArrowLeft" } },

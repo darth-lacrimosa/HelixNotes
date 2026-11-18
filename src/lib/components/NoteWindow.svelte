@@ -13,6 +13,8 @@
 		editorDirty,
 		readOnly,
 		sourceMode,
+		editorMode,
+		selectEditorMode,
 		tagStyles
 	} from '$lib/stores/app';
 	import { completeWindowClose, cancelWindowClose, getTagStyles, readNote } from '$lib/api';
@@ -88,7 +90,7 @@
 			editor?.forceSave();
 		} else if (action === 'toggle-source') {
 			e.preventDefault();
-			$sourceMode = !$sourceMode;
+			selectEditorMode($editorMode === 'source' ? 'live' : 'source');
 		}
 	}
 

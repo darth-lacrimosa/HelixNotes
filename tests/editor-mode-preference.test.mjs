@@ -5,18 +5,22 @@ import { get } from 'svelte/store';
 import { newNoteEditorMode, selectEditorMode, editorMode } from '../src/lib/editor/mode.ts';
 import { setNewNoteEditorMode } from '../src/lib/api.ts';
 
-test('fresh profiles default to Rich text and legacy Source preferences are retained',()=>{
-  for(const config of [null,undefined,{}, {new_notes_in_source_mode:false}]) assert.equal(newNoteEditorMode(config),'rich');
+test('fresh profiles default to Live preview; a stored Rich preference resolves to Live and legacy Source is retained',()=>{
+  for(const config of [null,undefined,{}, {new_notes_in_source_mode:false}, {new_note_editor_mode:'rich'}]) assert.equal(newNoteEditorMode(config),'live');
   assert.equal(newNoteEditorMode({new_notes_in_source_mode:true}),'source');
-  for(const mode of ['rich','live','source']) assert.equal(newNoteEditorMode({new_note_editor_mode:mode,new_notes_in_source_mode:true}),mode);
+  for(const mode of ['live','source']) assert.equal(newNoteEditorMode({new_note_editor_mode:mode,new_notes_in_source_mode:true}),mode);
   assert.equal(newNoteEditorMode({new_note_editor_mode:'invalid',new_notes_in_source_mode:true}),'source');
+});
+
+test('windows start in Live preview',()=>{
+  selectEditorMode('live'); assert.equal(get(editorMode),'live');
 });
 
 test('new-note preferences only choose a mode when explicitly applied to a new note',()=>{
   selectEditorMode('live');
-  const config={new_note_editor_mode:'rich'};
-  assert.equal(newNoteEditorMode(config),'rich'); assert.equal(get(editorMode),'live');
-  selectEditorMode(newNoteEditorMode(config)); assert.equal(get(editorMode),'rich');
+  const config={new_note_editor_mode:'source'};
+  assert.equal(newNoteEditorMode(config),'source'); assert.equal(get(editorMode),'live');
+  selectEditorMode(newNoteEditorMode(config)); assert.equal(get(editorMode),'source');
 });
 
 test('preference writes use a dedicated partial command and propagate failure',async()=>{

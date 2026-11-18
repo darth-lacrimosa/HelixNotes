@@ -3,9 +3,10 @@ let errors:string[];
 test.beforeEach(async({page})=>{errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto('/?fixture=preference');await expect(page.getByRole('radiogroup')).toBeVisible();});
 test.afterEach(()=>{expect(errors).toEqual([]);});
 
-test('Rich text is selected by default and all three choices persist without changing the current editor',async({page})=>{
-  await expect(page.getByRole('radio',{name:'Rich text',exact:true})).toBeChecked();
-  for(const [label,mode] of [['Live preview','live'],['Markdown source','source'],['Rich text','rich']]){
+test('Live preview is selected by default and both choices persist without changing the current editor',async({page})=>{
+  await expect(page.getByRole('radio',{name:'Live preview',exact:true})).toBeChecked();
+  await expect(page.getByRole('radio',{name:'Rich text',exact:true})).toHaveCount(0);
+  for(const [label,mode] of [['Markdown source','source'],['Live preview','live']]){
     await page.getByRole('radio',{name:label,exact:true}).check();
     await expect(page.getByRole('radio',{name:label,exact:true})).toBeChecked();
     await page.evaluate(()=>(window as any).preferenceFixture.restart());
@@ -23,15 +24,15 @@ test('legacy Source preference migrates and failed saves keep the previously sav
   await expect(page.getByRole('alert')).toContainText('Disk full');
   await expect(page.getByRole('radio',{name:'Markdown source',exact:true})).toBeChecked();
   await page.evaluate(()=>(window as any).preferenceFixture.fail(false));
-  await page.getByRole('radio',{name:'Rich text',exact:true}).check();
-  await expect(page.getByRole('radio',{name:'Rich text',exact:true})).toBeChecked();
+  await page.getByRole('radio',{name:'Live preview',exact:true}).check();
+  await expect(page.getByRole('radio',{name:'Live preview',exact:true})).toBeChecked();
 });
 
 test('native radio keyboard navigation saves the next mode and the group fits longer translations on phones',async({page},testInfo)=>{
-  await page.getByRole('radio',{name:'Rich text',exact:true}).focus();
+  await page.getByRole('radio',{name:'Live preview',exact:true}).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('radio',{name:'Live preview',exact:true})).toBeChecked();
-  await expect(page.getByRole('radio',{name:'Live preview',exact:true})).toBeFocused();
+  await expect(page.getByRole('radio',{name:'Markdown source',exact:true})).toBeChecked();
+  await expect(page.getByRole('radio',{name:'Markdown source',exact:true})).toBeFocused();
   await page.setViewportSize({width:360,height:640});
   await page.evaluate(()=>(window as any).preferenceFixture.language('pt-PT'));
   const bounds=await page.getByRole('radiogroup').boundingBox();expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(360);

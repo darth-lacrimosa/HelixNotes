@@ -134,7 +134,6 @@
 			label: 'Switch to Dracula Theme',
 			action: () => { $theme = 'dracula'; setTheme('dracula'); applyTheme('dracula'); $showCommandPalette = false; }
 		},
-		{ id: 'editor-rich', label: 'Rich text', action: () => { selectEditorMode('rich'); $showCommandPalette = false; } },
 		{ id: 'editor-live', label: 'Live preview', action: () => { selectEditorMode('live'); $showCommandPalette = false; } },
 		{ id: 'editor-source', label: 'Markdown source', action: () => { selectEditorMode('source'); $showCommandPalette = false; } },
 		{

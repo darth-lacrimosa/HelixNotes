@@ -7,6 +7,7 @@ import { sourceMarkdownExtensions } from './syntax.ts';
 import { livePreview, type LivePreviewOptions } from './live-preview.ts';
 import { tags } from '@lezer/highlight';
 import { getSelectionPair } from '../selectionPairs.ts';
+import { formatCommands } from './format.ts';
 import type { NoteSearchMatch } from '../search';
 
 const representationChange = Annotation.define<boolean>();
@@ -90,7 +91,13 @@ export class SourceController {
 		this.extensions = [
 			markdown({ extensions: sourceMarkdownExtensions }), history(), drawSelection(), sourceSearchDecoration, sourceTheme,
 			syntaxHighlighting(sourceSyntax), indentUnit.of('\t'), EditorState.tabSize.of(4),
-			keymap.of([{ key: 'Shift-Enter', run: sourceHardBreak }, indentWithTab, ...historyKeymap, ...defaultKeymap]),
+			keymap.of([{ key: 'Shift-Enter', run: sourceHardBreak },
+				// Same shortcuts as the rich-text toolbar; they must precede the default keymap, which also binds Mod-i and Mod-u.
+				{ key: 'Mod-b', run: formatCommands.bold }, { key: 'Mod-i', run: formatCommands.italic },
+				{ key: 'Mod-u', run: formatCommands.underline }, { key: 'Mod-e', run: formatCommands['inline-code'] },
+				{ key: 'Mod-k', run: formatCommands.link }, { key: 'Mod-Shift-x', run: formatCommands.strike },
+				{ key: 'Mod-Shift-h', run: formatCommands.highlight },
+				indentWithTab, ...historyKeymap, ...defaultKeymap]),
 			EditorView.domEventHandlers({
 				keydown: (event, view) => {
 					if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return false;

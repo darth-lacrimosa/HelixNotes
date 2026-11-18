@@ -982,7 +982,8 @@
 					editor?.forceSave();
 					return;
 				case 'toggle-source':
-					$sourceMode = !$sourceMode;
+					// Live preview <-> Markdown source. Rich text is no longer part of the cycle.
+					selectEditorMode($editorMode === 'source' ? 'live' : 'source');
 					return;
 				case 'open-new-window':
 					if ($activeNotePath && $activeNote) {
@@ -1453,7 +1454,7 @@
 					</button>
 					{/if}
 					{#if inMenu}
-						{#each ['rich', 'live', 'source'] as mode}
+						{#each ['live', 'source'] as mode}
 							<button class="mobile-note-menu-item" type="button" role="menuitemradio" aria-checked={$editorMode === mode} class:active={$editorMode === mode} onclick={() => selectEditorMode(mode as EditorMode)}>
 								<span>{$ui(mode === 'rich' ? 'editorMode.rich' : mode === 'live' ? 'editorMode.live' : 'editorMode.source')}</span>
 							</button>

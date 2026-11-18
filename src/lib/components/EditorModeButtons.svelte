@@ -9,7 +9,6 @@
 	let disposed = false;
 	onDestroy(() => { disposed = true; });
 	const options = $derived([
-		{ value: 'rich' as const, label: $t('editorMode.rich') },
 		{ value: 'live' as const, label: $t('editorMode.live') },
 		{ value: 'source' as const, label: $t('editorMode.source') },
 	]);
