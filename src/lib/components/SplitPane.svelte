@@ -10,6 +10,13 @@
 
 	let frame = $state<HTMLIFrameElement>();
 	let src = $state('');
+	// The frame stays invisible until its note is loaded: an unpainted frame is white, which flashes on a dark theme.
+	let ready = $state(false);
+	let readyTimer: ReturnType<typeof setTimeout> | null = null;
+	function showFrame() {
+		if (readyTimer) { clearTimeout(readyTimer); readyTimer = null; }
+		ready = true;
+	}
 	let shownNonce = -1;
 	let seq = 0;
 	const pending = new Map<number, (ok: boolean) => void>();
@@ -43,6 +50,10 @@
 		const path = state.path;
 		void (async () => {
 			if (src) await flush();
+			ready = false;
+			if (readyTimer) clearTimeout(readyTimer);
+			// If the pane never reports in, show whatever it has rather than leave the space empty.
+			readyTimer = setTimeout(showFrame, 4000);
 			src = urlFor(path);
 		})();
 	});
@@ -52,7 +63,7 @@
 			if (event.origin !== window.location.origin || !frame || event.source !== frame.contentWindow) return;
 			const data = event.data as { type?: string; path?: string; id?: number; ok?: boolean } | null;
 			if (!data) return;
-			if (data.type === 'helix-pane-note' && typeof data.path === 'string') followSplit(data.path);
+			if (data.type === 'helix-pane-note' && typeof data.path === 'string') { followSplit(data.path); showFrame(); }
 			else if (data.type === 'helix-pane-focus') onfocus?.();
 			// Ctrl+W typed inside the pane closes the pane, as it closes a tab in the main editor.
 			else if (data.type === 'helix-pane-close') void close();
@@ -81,7 +92,7 @@
 		<!-- Keeps the line above the editors unbroken while the main editor shows its tab bar. -->
 		{#if $tabsState.tabs.length > 1}<div class="split-strip"></div>{/if}
 		{#if src}
-			<iframe bind:this={frame} {src} title={$ui('ui.split_view')}></iframe>
+			<iframe bind:this={frame} {src} class:ready title={$ui('ui.split_view')}></iframe>
 		{/if}
 	</section>
 {/if}
@@ -101,7 +112,8 @@
 		background: var(--bg-primary);
 		box-shadow: inset 0 -1px 0 var(--border-light);
 	}
-	iframe { flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg-editor, var(--bg-primary)); }
+	iframe { flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg-editor, var(--bg-primary)); opacity: 0; }
+	iframe.ready { opacity: 1; transition: opacity 0.1s; }
 	/* While a divider is being dragged the pointer must not be swallowed by the frame. */
 	:global(body.resizing) iframe { pointer-events: none; }
 </style>

@@ -35,7 +35,7 @@
 	import { readFile } from '@tauri-apps/plugin-fs';
 	import { openFile, openUrl, copyFileTo, copyImageToClipboard as copyImageToClipboardCmd, writeBytesTo, copyPngToClipboard, copyTextToClipboard } from '$lib/api';
 	import { save as saveDialog } from '@tauri-apps/plugin-dialog';
-	import { activeNote, activeNotePath, appConfig, editorDirty, sourceMode, livePreviewMode, focusMode, readOnly, quickAccessPaths, notes, navHistory, canGoBack, canGoForward, viewerNote, viewMode, notebooks, outlineWidth } from '$lib/stores/app';
+	import { activeNote, activeNotePath, appConfig, editorDirty, sourceMode, livePreviewMode, focusMode, readOnly, quickAccessPaths, notes, navHistory, viewerNote, viewMode, notebooks, outlineWidth } from '$lib/stores/app';
 	import { saveNote, importNote, createNote, saveImage, saveAttachment, readClipboardImage, readClipboardContents, addQuickAccess, removeQuickAccess, getQuickAccess, getNoteVersions, getNoteVersionContent, createVersion, aiAsk, getAllNoteTitles, readNote, renameNote, setToolbarLayout } from '$lib/api';
 	import type { NoteContent, VersionEntry, AiStreamEvent, NoteTitleEntry, TaskItem as TaskRecord, FileEvent, SearchTarget, ToolbarLayout } from '$lib/types';
 	import { listen } from '@tauri-apps/api/event';
@@ -4040,23 +4040,6 @@
 				titleInput.select();
 			}
 		});
-	}
-
-	async function editorNavigateHistory(direction: -1 | 1) {
-		const isCurrent = beginEditorNoteNavigation();
-		const vault = $appConfig?.active_vault;
-		if (!isCurrent() || !vault) return;
-		if (!(await flushSave()) || !isCurrent()) return;
-		const path = navHistory.go(direction);
-		if (!path) return;
-		try {
-			const content = await readNote(vault, path);
-			if (!isCurrent()) return;
-			if (!(await flushSave()) || !isCurrent()) return;
-			$activeNote = content;
-			$activeNotePath = path;
-			$editorDirty = false;
-		} catch {}
 	}
 
 	/** Capture and queue unsaved content before changing active-note stores.
@@ -8198,16 +8181,6 @@
 			</div>
 			{#if !isMobile}
 			<div class="toolbar-actions">
-				{#if $canGoBack || $canGoForward}
-				<div class="nav-history-btns">
-					<button class="nav-history-btn" disabled={!$canGoBack} onclick={() => editorNavigateHistory(-1)} title={$ui("ui.back_alt")}>
-						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-					</button>
-					<button class="nav-history-btn" disabled={!$canGoForward} onclick={() => editorNavigateHistory(1)} title={$ui("ui.forward_alt")}>
-						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-					</button>
-				</div>
-				{/if}
 				{#if $editorDirty}
 					<span class="save-indicator">{$ui("ui.unsaved")}</span>
 				{/if}
@@ -9775,40 +9748,6 @@
 		justify-content: space-between;
 		padding: 12px 20px 4px;
 		flex-shrink: 0;
-	}
-
-	.nav-history-btns {
-		display: flex;
-		align-items: center;
-		gap: 2px;
-		margin-right: auto;
-		flex-shrink: 0;
-	}
-
-	.nav-history-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		border: none;
-		background: none;
-		color: var(--text-tertiary);
-		border-radius: 5px;
-		cursor: pointer;
-		padding: 0;
-		transition: color 0.15s, background 0.15s;
-	}
-
-	.nav-history-btn:hover {
-		color: var(--text-primary);
-		background: var(--bg-hover);
-	}
-
-	.nav-history-btn:disabled {
-		opacity: 0.3;
-		cursor: default;
-		pointer-events: none;
 	}
 
 	.editor-title {
