@@ -12,6 +12,8 @@ export interface SplitState { path: string; nonce: number }
 export const splitState = writable<SplitState | null>(null);
 
 let owner = 0;
+// Never reused: a split that is closed and opened again must look new to the pane, even for the same note.
+let opened = 0;
 
 /**
  * Start a layout with no split. The returned release closes the split, but a layout that was already
@@ -27,7 +29,7 @@ export function setSplitVault(): () => void {
 
 /** Show `path` in the split pane, opening it if needed. */
 export function openInSplit(path: string): void {
-	splitState.update((state) => ({ path, nonce: (state?.nonce ?? 0) + 1 }));
+	splitState.set({ path, nonce: ++opened });
 }
 
 export function closeSplit(): void { splitState.set(null); }

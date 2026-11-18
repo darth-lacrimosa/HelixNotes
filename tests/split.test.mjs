@@ -45,3 +45,13 @@ test('a replaced layout cannot close the newer one', () => {
   current();
   assert.equal(get(splitState), null);
 });
+
+test('every opening gets a new nonce, even after the split was closed', () => {
+  const release = setSplitVault();
+  openInSplit('/vault/same.md');
+  const first = get(splitState).nonce;
+  closeSplit();
+  openInSplit('/vault/same.md');
+  assert.ok(get(splitState).nonce > first);
+  release();
+});

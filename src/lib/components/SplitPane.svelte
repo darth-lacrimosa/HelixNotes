@@ -45,7 +45,15 @@
 	// A note chosen on purpose reloads the pane; save what the old one holds first.
 	$effect(() => {
 		const state = $splitState;
-		if (!state || state.nonce === shownNonce) return;
+		if (!state) {
+			// Closed: forget the old frame so the next opening starts hidden and loads its own note.
+			src = '';
+			ready = false;
+			shownNonce = -1;
+			if (readyTimer) { clearTimeout(readyTimer); readyTimer = null; }
+			return;
+		}
+		if (state.nonce === shownNonce) return;
 		shownNonce = state.nonce;
 		const path = state.path;
 		void (async () => {
