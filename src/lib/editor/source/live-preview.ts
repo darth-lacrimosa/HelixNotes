@@ -3,12 +3,14 @@ import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, typ
 import { syntaxTree } from '@codemirror/language';
 import MarkdownIt from 'markdown-it';
 import { tablePreview } from './table.ts';
+import { codeBlocks } from './code-blocks.ts';
 
 export interface LivePreviewOptions {
 	resolveImage?: (href: string) => string;
 	openLink?: (href: string) => void;
 	checkboxLabel?: string;
 	imageLabel?: string;
+	copyLabel?: string;
 	/** Re-resolve assets after note/vault changes, even if the Markdown is identical. */
 	context?: string;
 }
@@ -278,7 +280,7 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 			this.atomic = this.decorations.update({ filter: (_from, _to, decoration) => !!decoration.spec.liveAtomic });
 		}
 	}, { decorations: value => value.decorations, provide: plugin => EditorView.atomicRanges.of(view => view.plugin(plugin)?.atomic ?? Decoration.none) });
-	return [plugin, tablePreview({ openLink: options.openLink }), EditorView.domEventHandlers({
+	return [plugin, tablePreview({ openLink: options.openLink }), codeBlocks({ copyLabel: options.copyLabel }),EditorView.domEventHandlers({
 		mousedown(event, view) {
 			// Handle before CM moves the caret and reveals (removes) the decorated link.
 			if (!(event.ctrlKey || event.metaKey) || event.button !== 0 || !options.openLink) return false;
@@ -313,10 +315,10 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 		'.cm-line .lp-highlight, .cm-line .lp-highlight span': { color: 'var(--text-accent)' },
 		'.lp-inline-code': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '0.9em', background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', borderRadius: '4px', padding: '2px 6px' },
 		'.lp-code-block': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '0.93em', lineHeight: '1.5', background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', padding: '0 16px' },
-		'.lp-code-first': { position: 'relative', borderRadius: '8px 8px 0 0', paddingTop: '2px' },
-		'.lp-code-last': { borderRadius: '0 0 8px 8px', paddingBottom: '2px' },
-		'.lp-code-first.lp-code-last': { borderRadius: '8px' },
-		'.lp-code-first::after': { content: 'attr(data-lang)', position: 'absolute', top: '5px', right: '10px', padding: '2px 6px', fontSize: '11px', color: 'var(--text-tertiary)', opacity: '0.6', pointerEvents: 'none' },
+		'.lp-code-first': { position: 'relative', borderRadius: '3px 3px 0 0', paddingTop: '2px' },
+		'.lp-code-last': { borderRadius: '0 0 3px 3px', paddingBottom: '2px' },
+		'.lp-code-first.lp-code-last': { borderRadius: '3px' },
+		'.lp-code-first::after': { content: 'attr(data-lang)', position: 'absolute', top: '5px', right: '34px', padding: '2px 6px', fontSize: '11px', color: 'var(--text-tertiary)', opacity: '0.6', pointerEvents: 'none' },
 		'.lp-table-wrap': { overflowX: 'auto', margin: '4px 0', padding: '0 4px', cursor: 'text' },
 		'.lp-table': { borderCollapse: 'collapse', width: 'auto' },
 		'.lp-table th, .lp-table td': { border: '1px solid var(--border-color)', padding: '8px 12px', textAlign: 'left', verticalAlign: 'top', minWidth: '80px', lineHeight: '1.5' },

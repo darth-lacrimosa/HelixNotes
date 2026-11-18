@@ -75,3 +75,35 @@ test('linkAt finds a link by position whether or not its syntax is showing', () 
 	assert.equal(linkAt(s, 1), null);
 	assert.ok(syntaxTree(s).length > 0);
 });
+
+import { fencedBlock, highlightSpans, highlightedRanges } from '../src/lib/editor/source/code-blocks.ts';
+
+const fence = (s) => { let found; syntaxTree(s).iterate({ enter: (ref) => { if (ref.name === 'FencedCode' && !found) { found = ref.node; return false; } } }); return found; };
+
+test('code highlighting uses the rich-text token classes and stays plain without a known language', () => {
+	const spans = highlightSpans('js', 'const a = 1; // note');
+	assert.ok(spans.some((span) => span.className === 'hljs-keyword' && span.from === 0 && span.to === 5));
+	assert.ok(spans.some((span) => span.className === 'hljs-number'));
+	assert.ok(spans.some((span) => span.className === 'hljs-comment'));
+	assert.deepEqual(highlightSpans('', 'const a = 1;'), []);
+	assert.deepEqual(highlightSpans('mermaid', 'graph TD'), []);
+	assert.ok(highlightSpans('powershell', 'Get-ChildItem -Path .').length > 0);
+});
+
+test('fenced block ranges point at the code in the document', () => {
+	const doc = 'intro\n\n```js\nconst a = 1;\nlet b;\n```\n\nafter';
+	const s = state(doc);
+	const block = fencedBlock(s, fence(s));
+	assert.equal(block.language, 'js');
+	assert.equal(block.text, 'const a = 1;\nlet b;');
+	const ranges = highlightedRanges(s, fence(s));
+	const keywords = ranges.filter((range) => range.className === 'hljs-keyword').map((range) => s.sliceDoc(range.from, range.to));
+	assert.deepEqual(keywords, ['const', 'let']);
+});
+
+test('code inside a quote keeps its highlight on the right characters', () => {
+	const doc = '> ```js\n> const a = 1;\n> ```\n\nafter';
+	const s = state(doc);
+	const ranges = highlightedRanges(s, fence(s));
+	assert.deepEqual(ranges.filter((range) => range.className === 'hljs-keyword').map((range) => s.sliceDoc(range.from, range.to)), ['const']);
+});

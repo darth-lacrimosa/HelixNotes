@@ -23,8 +23,7 @@
 	import { AlwaysResizableTable } from '$lib/editor/tableExtension';
 	import { Details, DetailsSummary, DetailsContent } from '@tiptap/extension-details';
 	import TextAlign from '@tiptap/extension-text-align';
-	import { common, createLowlight } from 'lowlight';
-	import powershell from 'highlight.js/lib/languages/powershell';
+	import { codeLowlight } from '$lib/editor/source/code-blocks';
 	import katex from 'katex';
 	import 'katex/dist/katex.min.css';
 	import { Extension, Node as TiptapNode, Mark as TiptapMark, mergeAttributes } from '@tiptap/core';
@@ -995,8 +994,7 @@
 	let noteFolder = $derived(noteRelativePath ? noteRelativePath.substring(0, noteRelativePath.lastIndexOf('/')) : '');
 	let isQuickAccess = $derived(noteRelativePath ? $quickAccessPaths.includes(noteRelativePath) : false);
 
-	const lowlight = createLowlight(common);
-	lowlight.register('powershell', powershell);
+	const lowlight = codeLowlight;
 	const codeLanguages = [...lowlight.listLanguages(), 'mermaid'].sort();
 	const mdit = createEditorMarkdownParser();
 
