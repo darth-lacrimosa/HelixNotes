@@ -56,6 +56,7 @@
 	import { defaultGridCols, expandImageRange, reorderTarget, serializeImgGrid } from '$lib/editor/imageGrid';
 	import { calloutGroup, calloutIcon, calloutLabel, CALLOUT_MENU, transformCalloutBlockquotes, serializeCallout } from '$lib/editor/callouts';
 	import SourceEditor from './SourceEditor.svelte';
+	import SourceToolbar from './SourceToolbar.svelte';
 	import EditorModePicker from './EditorModePicker.svelte';
 	import { newNoteEditorMode, selectEditorMode } from '$lib/editor/mode';
 	import { SourceController } from '$lib/editor/source/controller';
@@ -8616,6 +8617,10 @@
 			{/if}
 			</div>
 		</div>
+
+		{#if $sourceMode && !isMobile && !$viewerNote && !showHistory}
+			<SourceToolbar controller={source} layout={toolbarLayout} disabled={$readOnly || externalOperationBusy} />
+		{/if}
 
 		{#if editorReady && !$sourceMode && !$viewerNote && !showHistory}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
