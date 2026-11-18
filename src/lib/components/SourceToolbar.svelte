@@ -1,21 +1,18 @@
 <script lang="ts">
-	import type { StateCommand } from '@codemirror/state';
 	import { t as ui, label as uiLabel } from '$lib/i18n';
-	import type { SourceController } from '$lib/editor/source/controller';
-	import { formatCommands, setHeading } from '$lib/editor/source/format';
+	import { formatCommands } from '$lib/editor/source/format';
+	import type { InsertKind, ToolbarAction } from '$lib/editor/source/toolbar-actions';
 	import { groupToolbarButtons, toolbarLabels, type ResolvedToolbarLayout, type ToolbarButtonId } from '$lib/editor/toolbar';
 
-	export type InsertKind = 'image' | 'file' | 'datetime';
-	let { controller, layout, disabled = false, onInsert }: {
-		controller: SourceController;
+	// The toolbar holds no editor; it reports what was asked and the owner of the active editor does it.
+	let { layout, disabled = false, onaction }: {
 		layout: ResolvedToolbarLayout;
 		disabled?: boolean;
-		onInsert?: (kind: InsertKind) => void;
+		onaction: (action: ToolbarAction) => void;
 	} = $props();
 
 	// Colour and alignment have no Markdown form, and date/AI belong to the rich-text toolbar.
-	const commands: Partial<Record<ToolbarButtonId, StateCommand>> = formatCommands;
-	const supported = (id: ToolbarButtonId) => id === 'heading' || (id === 'insert' && !!onInsert) || id in commands;
+	const supported = (id: ToolbarButtonId) => id === 'heading' || id === 'insert' || id in formatCommands;
 	const groups = $derived(groupToolbarButtons([...layout.main, ...layout.more].filter(supported), false));
 
 	const icons: Record<string, string> = {
@@ -48,20 +45,17 @@
 	let headingOpen = $state(false);
 	let insertOpen = $state(false);
 	const headings = [1, 2, 3, 4] as const;
-	function runInsert(kind: InsertKind) {
+	function runInsert(what: InsertKind) {
 		insertOpen = false;
-		if (!disabled) onInsert?.(kind);
+		if (!disabled) onaction({ kind: 'insert', what });
 	}
 
-	function run(command: StateCommand) {
-		const view = controller.view;
-		if (!view || disabled) return;
-		command({ state: controller.state, dispatch: (transaction) => controller.dispatch(transaction) });
-		controller.focus();
+	function runCommand(id: string) {
+		if (!disabled) onaction({ kind: 'command', id });
 	}
 	function runHeading(level: number) {
 		headingOpen = false;
-		run(setHeading(level));
+		if (!disabled) onaction({ kind: 'heading', level });
 	}
 	// Keep the caret and selection in the editor when a button is pressed.
 	function keepFocus(event: MouseEvent) {
@@ -106,7 +100,7 @@
 					{/if}
 				</div>
 			{:else}
-				<button class="btn" type="button" {disabled} title={$uiLabel(toolbarLabels[id])} aria-label={$uiLabel(toolbarLabels[id])} onclick={() => run(commands[id]!)}>
+				<button class="btn" type="button" {disabled} title={$uiLabel(toolbarLabels[id])} aria-label={$uiLabel(toolbarLabels[id])} onclick={() => runCommand(id)}>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html icons[id]}</svg>
 				</button>
 			{/if}

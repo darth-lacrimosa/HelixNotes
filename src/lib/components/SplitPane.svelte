@@ -4,7 +4,9 @@
 	import { splitState, closeSplit, followSplit } from '$lib/stores/split';
 	import { titleFromPath } from '$lib/utils/tabs';
 
-	let { vault }: { vault: string } = $props();
+	import { isToolbarAction, type ToolbarAction } from '$lib/editor/source/toolbar-actions';
+
+	let { vault, onfocus }: { vault: string; onfocus?: () => void } = $props();
 
 	let frame = $state<HTMLIFrameElement>();
 	let src = $state('');
@@ -25,6 +27,12 @@
 			pending.set(id, (ok) => { clearTimeout(timer); pending.delete(id); resolve(ok); });
 			target.postMessage({ type: 'helix-pane-flush', id }, window.location.origin);
 		});
+	}
+
+	/** Hand a toolbar action to the editor in the pane. */
+	export function sendAction(action: ToolbarAction): void {
+		if (!isToolbarAction(action)) return;
+		frame?.contentWindow?.postMessage({ type: 'helix-pane-action', action }, window.location.origin);
 	}
 
 	const urlFor = (path: string) => `/?pane=1&note=${encodeURIComponent(path)}&vault=${encodeURIComponent(vault)}`;
@@ -64,7 +72,8 @@
 </script>
 
 {#if $splitState}
-	<section class="split-pane" aria-label={$ui('ui.split_view')}>
+	<!-- Focus entering the frame (a click or Tab into the note) makes this the pane the toolbar acts on. -->
+	<section class="split-pane" aria-label={$ui('ui.split_view')} onfocusin={() => onfocus?.()}>
 		<div class="split-header">
 			<span class="split-title" title={$splitState.path}>{title}</span>
 			{#if dirty}<span class="split-dirty" title={$ui('ui.unsaved_changes')}></span>{/if}

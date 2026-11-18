@@ -16,6 +16,9 @@
 	import TitleBar from './TitleBar.svelte';
 	import TabBar from './TabBar.svelte';
 	import SplitPane from './SplitPane.svelte';
+	import SourceToolbar from './SourceToolbar.svelte';
+	import { resolveToolbarLayout } from '$lib/editor/toolbar';
+	import type { ToolbarAction } from '$lib/editor/source/toolbar-actions';
 	import { splitState, setSplitVault } from '$lib/stores/split';
 	import { tabsState, setTabsVault } from '$lib/stores/tabs';
 	import { closeTab, stepTab } from '$lib/utils/tabs';
@@ -204,6 +207,36 @@
 	const releaseSplit = setSplitVault();
 	onDestroy(releaseSplit);
 	let splitPane = $state<SplitPane>();
+
+	// The toolbar acts on the pane the user last worked in; without a split that is always the main editor.
+	let activePane = $state<'main' | 'split'>('main');
+	$effect(() => { if (!$splitState) activePane = 'main'; });
+	const sharedToolbarLayout = $derived(resolveToolbarLayout($appConfig?.toolbar_layout, false, false));
+
+	/** A file chosen here (the click is a user gesture in this frame) so it can be handed to the other pane. */
+	function pickFile(accept: string): Promise<File | null> {
+		return new Promise((resolve) => {
+			const input = document.createElement('input');
+			input.type = 'file';
+			if (accept) input.accept = accept;
+			input.onchange = () => resolve(input.files?.[0] ?? null);
+			input.oncancel = () => resolve(null);
+			input.click();
+		});
+	}
+
+	async function runToolbarAction(action: ToolbarAction) {
+		if (activePane === 'split' && $splitState && splitPane) {
+			if (action.kind === 'insert' && (action.what === 'image' || action.what === 'file')) {
+				const file = await pickFile(action.what === 'image' ? 'image/*' : '');
+				if (file) splitPane.sendAction({ kind: 'insert-file', file });
+				return;
+			}
+			splitPane.sendAction(action);
+			return;
+		}
+		editor?.runToolbarAction(action);
+	}
 	let stateReady = false;
 	const unregisterMcpReadiness = isMobileTarget ? () => {} : registerMcpReadiness(() => stateReady && !vaultSwitchBusy && !restoringNote && pendingOpenDrain === null);
 	onDestroy(unregisterMcpReadiness);
@@ -1639,13 +1672,20 @@
 			{/if}
 
 			<div class="editor-panel">
-				<div class="editor-main">
-					<TabBar onselect={selectTab} onclose={closeTabAt} />
-					<div class="editor-slot">
-						<Editor bind:this={editor} onMoveToTrash={trashOpenNote} onShowTag={showTagNotes} />
+				<div class="editor-panes">
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="editor-main" onfocusin={() => (activePane = 'main')}>
+						<TabBar onselect={selectTab} onclose={closeTabAt} />
+						<div class="editor-slot">
+							<Editor bind:this={editor} externalToolbar onMoveToTrash={trashOpenNote} onShowTag={showTagNotes} />
+						</div>
 					</div>
+					{#if ownerVault}<SplitPane bind:this={splitPane} vault={ownerVault} onfocus={() => (activePane = 'split')} />{/if}
 				</div>
-				{#if ownerVault}<SplitPane bind:this={splitPane} vault={ownerVault} />{/if}
+				<!-- One toolbar for both panes: it formats the one you last worked in. -->
+				{#if $sourceMode && !$viewerNote}
+					<SourceToolbar layout={sharedToolbarLayout} disabled={$readOnly} onaction={runToolbarAction} />
+				{/if}
 				{#if $viewMode === 'tasks' && !taskNoteOpened}
 					<div class="tasks-editor-placeholder">
 						<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1733,6 +1773,14 @@
 		overflow: hidden;
 		min-width: 300px;
 		position: relative;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* The two panes side by side; the shared toolbar sits beneath both. */
+	.editor-panes {
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: row;
 	}

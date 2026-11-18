@@ -24,6 +24,7 @@
 	import { isCurrentVaultEvent } from '$lib/utils/note-list-updates';
 	import { beginNoteNavigation, isCurrentNoteNavigation, cancelNoteNavigation } from '$lib/utils/note-navigation';
 	import { mcpBusy } from '$lib/utils/mcp-editor';
+	import { isToolbarAction } from '$lib/editor/source/toolbar-actions';
 
 	// `embedded` is a split-view pane: the same editor inside an iframe of the main window, with no window
 	// chrome of its own. It reports to its parent by postMessage and does not touch the native window.
@@ -148,7 +149,12 @@
 		// The parent asks a pane to save before the window closes or the pane is replaced.
 		const onParentMessage = async (event: MessageEvent) => {
 			if (!embedded || event.source !== window.parent || event.origin !== window.location.origin) return;
-			const data = event.data as { type?: string; id?: number } | null;
+			const data = event.data as { type?: string; id?: number; action?: unknown } | null;
+			// The shared toolbar of the main window formats whichever pane is active.
+			if (data?.type === 'helix-pane-action') {
+				if (isToolbarAction(data.action)) editor?.runToolbarAction(data.action);
+				return;
+			}
 			if (data?.type !== 'helix-pane-flush') return;
 			let ok = true;
 			try { ok = !editor || (await editor.flushSave()); } catch { ok = false; }
@@ -356,7 +362,7 @@
 		</div>
 	{:else}
 		<div class="nw-editor">
-			<Editor bind:this={editor} />
+			<Editor bind:this={editor} externalToolbar={embedded} />
 		</div>
 	{/if}
 </div>

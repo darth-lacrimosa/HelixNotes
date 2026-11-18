@@ -56,6 +56,9 @@
 	import { calloutGroup, calloutIcon, calloutLabel, CALLOUT_MENU, transformCalloutBlockquotes, serializeCallout } from '$lib/editor/callouts';
 	import SourceEditor from './SourceEditor.svelte';
 	import SourceToolbar from './SourceToolbar.svelte';
+	import type { StateCommand } from '@codemirror/state';
+	import { formatCommands, setHeading } from '$lib/editor/source/format';
+	import type { InsertKind, ToolbarAction } from '$lib/editor/source/toolbar-actions';
 	import EditorModePicker from './EditorModePicker.svelte';
 	import { newNoteEditorMode, selectEditorMode } from '$lib/editor/mode';
 	import { SourceController } from '$lib/editor/source/controller';
@@ -88,11 +91,13 @@
 
 	const componentId = $props.id();
 	const outlinePanelId = `${componentId}-outline`;
-	let { onMoveToTrash, onOutlineChange, onShowTag }: {
+	let { onMoveToTrash, onOutlineChange, onShowTag, externalToolbar = false }: {
 		onMoveToTrash?: (path: string) => Promise<boolean>;
 		onOutlineChange?: (open: boolean, panelId: string) => void;
 		/** Shows the notes carrying a tag. Without it (a detached note window) the tags open the tag editor. */
 		onShowTag?: (tag: string) => void;
+		/** The formatting toolbar is drawn by the host (one toolbar for a split view) and drives this editor by runToolbarAction. */
+		externalToolbar?: boolean;
 	} = $props();
 
 	const modKey = navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl';
@@ -748,8 +753,25 @@
 		source.focus();
 	}
 
+	function runSourceCommand(command: StateCommand) {
+		if (!source.view) return;
+		command({ state: source.state, dispatch: (transaction) => source.dispatch(transaction) });
+		source.focus();
+	}
+
+	/** Perform what the formatting toolbar asked. The toolbar may be drawn by the host, for either pane of a split. */
+	export function runToolbarAction(action: ToolbarAction): void {
+		if (!$sourceMode || $readOnly || !$activeNotePath) return;
+		if (action.kind === 'command') {
+			const command = (formatCommands as Record<string, StateCommand>)[action.id];
+			if (command) runSourceCommand(command);
+		} else if (action.kind === 'heading') runSourceCommand(setHeading(action.level));
+		else if (action.kind === 'insert') insertFromSourceToolbar(action.what);
+		else if (action.kind === 'insert-file') void insertFile(action.file);
+	}
+
 	/** Insert menu of the Markdown (Live / Source) toolbar. Attachments reuse the rich-text upload path. */
-	function insertFromSourceToolbar(kind: 'image' | 'file' | 'datetime') {
+	function insertFromSourceToolbar(kind: InsertKind) {
 		if (kind === 'image') { openAssetPicker('insert-image-input'); return; }
 		if (kind === 'file') { openAssetPicker('insert-file-input'); return; }
 		const now = new Date();
@@ -8685,8 +8707,8 @@
 			</div>
 		</div>
 
-		{#if $sourceMode && !isMobile && !$viewerNote && !showHistory}
-			<SourceToolbar controller={source} layout={toolbarLayout} disabled={$readOnly || externalOperationBusy} onInsert={insertFromSourceToolbar} />
+		{#if $sourceMode && !isMobile && !$viewerNote && !showHistory && !externalToolbar}
+			<SourceToolbar layout={toolbarLayout} disabled={$readOnly || externalOperationBusy} onaction={runToolbarAction} />
 		{/if}
 
 		{#if editorReady && !$sourceMode && !$viewerNote && !showHistory}
