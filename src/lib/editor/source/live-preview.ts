@@ -2,6 +2,7 @@ import { EditorSelection, EditorState, type Extension, type Range } from '@codem
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import MarkdownIt from 'markdown-it';
+import { tablePreview } from './table.ts';
 
 export interface LivePreviewOptions {
 	resolveImage?: (href: string) => string;
@@ -56,6 +57,16 @@ export function previewSpans(state: EditorState, visible: readonly { from: numbe
 			}
 		}
 	};
+	/** Code lines carry first/last markers (a rounded block) and the language on the first line. */
+	const codeLines = (from: number, to: number, language: string) => {
+		const first = state.doc.lineAt(from).number, last = state.doc.lineAt(to).number;
+		for (let number = first; number <= last; number++) {
+			const line = state.doc.line(number);
+			if (!shown(line.from, line.to)) continue;
+			add({ from: line.from, to: line.from, kind: 'line', label: number === first ? language : undefined,
+				className: `lp-code-block${number === first ? ' lp-code-first' : ''}${number === last ? ' lp-code-last' : ''}` });
+		}
+	};
 	for (const range of visible) {
 		let line = state.doc.lineAt(range.from);
 		while (line.from <= range.to) {
@@ -75,7 +86,8 @@ export function previewSpans(state: EditorState, visible: readonly { from: numbe
 			if (to - from > 30_000) return false;
 		}
 		if (name === 'FencedCode' || name === 'CodeBlock') {
-			lines(from, to, 'lp-code-block');
+			const info = name === 'FencedCode' ? node.getChild('CodeInfo') : null;
+			codeLines(from, to, info ? state.sliceDoc(info.from, info.to).trim() : '');
 			if (name === 'FencedCode' && !active(from, to)) {
 				for (const mark of node.getChildren('CodeMark')) {
 					const line = state.doc.lineAt(mark.from);
@@ -94,10 +106,10 @@ export function previewSpans(state: EditorState, visible: readonly { from: numbe
 				hide(mark.from, end);
 			}
 		}
-		if (name === 'StrongEmphasis' || name === 'Emphasis' || name === 'Strikethrough' || name === 'InlineCode') {
-			const className = ({ StrongEmphasis: 'lp-strong', Emphasis: 'lp-emphasis', Strikethrough: 'lp-strike', InlineCode: 'lp-inline-code' })[name]!;
+		if (name === 'StrongEmphasis' || name === 'Emphasis' || name === 'Strikethrough' || name === 'Highlight' || name === 'InlineCode') {
+			const className = ({ StrongEmphasis: 'lp-strong', Emphasis: 'lp-emphasis', Strikethrough: 'lp-strike', Highlight: 'lp-highlight', InlineCode: 'lp-inline-code' })[name]!;
 			add({ from, to, kind: 'mark', className });
-			if (!active(from, to)) for (const mark of node.getChildren(name === 'InlineCode' ? 'CodeMark' : name === 'Strikethrough' ? 'StrikethroughMark' : 'EmphasisMark')) hide(mark.from, mark.to);
+			if (!active(from, to)) for (const mark of node.getChildren(name === 'InlineCode' ? 'CodeMark' : name === 'Strikethrough' ? 'StrikethroughMark' : name === 'Highlight' ? 'HighlightMark' : 'EmphasisMark')) hide(mark.from, mark.to);
 			if (name === 'InlineCode') return false;
 		}
 		if (name === 'Blockquote') lines(from, to, 'lp-quote');
@@ -140,6 +152,23 @@ export function previewSpans(state: EditorState, visible: readonly { from: numbe
 		}
 	} });
 	return spans;
+}
+
+/** Destination of the inline link, or bare URL, that contains `pos`, if any. */
+export function linkAt(state: EditorState, pos: number): string | null {
+	for (const side of [1, -1] as const) {
+		let node = syntaxTree(state).resolveInner(pos, side);
+		while (node.parent && node.name !== 'Link' && node.name !== 'URL') node = node.parent;
+		if (node.name === 'Link') {
+			const url = node.getChild('URL');
+			const href = url ? previewDestination(state.sliceDoc(url.from, url.to)) : null;
+			if (href) return href;
+		} else if (node.name === 'URL' && node.parent?.name !== 'Image') {
+			const href = previewDestination(state.sliceDoc(node.from, node.to));
+			if (href) return href;
+		}
+	}
+	return null;
 }
 
 class Bullet extends WidgetType {
@@ -230,7 +259,7 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 			const ranges: Range<Decoration>[] = [];
 			for (const span of previewSpans(view.state, view.visibleRanges, view.composing)) {
 				let decoration: Decoration;
-				if (span.kind === 'line') decoration = Decoration.line({ attributes: { class: span.className! } });
+				if (span.kind === 'line') decoration = Decoration.line({ attributes: span.label !== undefined ? { class: span.className!, 'data-lang': span.label || '•••' } : { class: span.className! } });
 				else if (span.kind === 'mark') decoration = Decoration.mark({ class: span.className!, attributes: span.href ? { 'data-preview-href': span.href, title: span.href } : undefined });
 				else {
 					let widget: WidgetType | undefined;
@@ -249,19 +278,20 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 			this.atomic = this.decorations.update({ filter: (_from, _to, decoration) => !!decoration.spec.liveAtomic });
 		}
 	}, { decorations: value => value.decorations, provide: plugin => EditorView.atomicRanges.of(view => view.plugin(plugin)?.atomic ?? Decoration.none) });
-	return [plugin, EditorView.domEventHandlers({
-		mousedown(event) {
+	return [plugin, tablePreview({ openLink: options.openLink }), EditorView.domEventHandlers({
+		mousedown(event, view) {
 			// Handle before CM moves the caret and reveals (removes) the decorated link.
-			const link = (event.target as Element).closest?.('[data-preview-href]');
-			if (!link || !(event.ctrlKey || event.metaKey) || !options.openLink) return false;
-			event.preventDefault(); options.openLink(link.getAttribute('data-preview-href')!); return true;
+			if (!(event.ctrlKey || event.metaKey) || event.button !== 0 || !options.openLink) return false;
+			const marked = (event.target as Element).closest?.('[data-preview-href]')?.getAttribute('data-preview-href');
+			// A link whose syntax is showing (the caret is on its line) is still a link: find it by position.
+			const pos = marked ? null : view.posAtCoords({ x: event.clientX, y: event.clientY });
+			const href = marked ?? (pos === null ? null : linkAt(view.state, pos));
+			if (!href) return false;
+			event.preventDefault(); options.openLink(href); return true;
 		},
 		keydown(event, view) {
 			if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || !options.openLink || event.isComposing) return false;
-			let node = syntaxTree(view.state).resolveInner(view.state.selection.main.head, -1);
-			while (node.parent && node.name !== 'Link') node = node.parent;
-			const url = node.name === 'Link' ? node.getChild('URL') : null;
-			const href = url ? previewDestination(view.state.sliceDoc(url.from, url.to)) : null;
+			const href = linkAt(view.state, view.state.selection.main.head);
 			if (!href) return false;
 			event.preventDefault(); options.openLink(href); return true;
 		},
@@ -271,7 +301,7 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 		'.cm-line': { lineHeight: 'var(--editor-line-height, 1.6)' },
 		'.lp-rendered span': { color: 'inherit' },
 		'.lp-rendered .lp-link, .lp-rendered .lp-link span': { color: 'var(--accent)' },
-		'.lp-rendered .lp-task-done, .lp-rendered .lp-task-done span': { color: 'var(--text-secondary)', textDecoration: 'line-through' },
+		'.lp-rendered .lp-task-done, .lp-rendered .lp-task-done span': { color: 'var(--text-tertiary)', textDecoration: 'line-through' },
 		'.lp-heading': { fontWeight: '700', paddingTop: '0.45em', paddingBottom: '0.2em', lineHeight: '1.35' },
 		'.lp-heading span': { color: 'var(--text-primary)' },
 		'.lp-h1': { fontSize: '1.9em' }, '.lp-h2': { fontSize: '1.55em' }, '.lp-h3': { fontSize: '1.3em' },
@@ -279,13 +309,29 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
 		'.cm-line .lp-strong': { fontWeight: '700', color: 'var(--text-primary)' },
 		'.cm-line .lp-emphasis': { fontStyle: 'italic', color: 'var(--text-primary)' },
 		'.lp-strike': { textDecoration: 'line-through' },
-		'.lp-inline-code': { fontFamily: 'var(--font-mono, monospace)', background: 'var(--bg-secondary)', borderRadius: '3px', padding: '1px 3px' },
-		'.lp-code-block': { fontFamily: 'var(--font-mono, monospace)', background: 'var(--bg-secondary)' },
+		'.lp-highlight': { background: 'var(--accent-light)', color: 'var(--text-accent)', borderRadius: '3px', padding: '0 3px' },
+		'.cm-line .lp-highlight, .cm-line .lp-highlight span': { color: 'var(--text-accent)' },
+		'.lp-inline-code': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '0.9em', background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', borderRadius: '4px', padding: '2px 6px' },
+		'.lp-code-block': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '0.93em', lineHeight: '1.5', background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', padding: '0 16px' },
+		'.lp-code-first': { position: 'relative', borderRadius: '8px 8px 0 0', paddingTop: '2px' },
+		'.lp-code-last': { borderRadius: '0 0 8px 8px', paddingBottom: '2px' },
+		'.lp-code-first.lp-code-last': { borderRadius: '8px' },
+		'.lp-code-first::after': { content: 'attr(data-lang)', position: 'absolute', top: '5px', right: '10px', padding: '2px 6px', fontSize: '11px', color: 'var(--text-tertiary)', opacity: '0.6', pointerEvents: 'none' },
+		'.lp-table-wrap': { overflowX: 'auto', margin: '4px 0', padding: '0 4px', cursor: 'text' },
+		'.lp-table': { borderCollapse: 'collapse', width: 'auto' },
+		'.lp-table th, .lp-table td': { border: '1px solid var(--border-color)', padding: '8px 12px', textAlign: 'left', verticalAlign: 'top', minWidth: '80px', lineHeight: '1.5' },
+		'.lp-table th': { background: 'var(--bg-tertiary)', fontWeight: '600' },
+		'.lp-table a': { color: 'var(--accent)', textDecoration: 'underline' },
+		'.lp-table code': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '0.9em', background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', padding: '2px 6px', borderRadius: '4px' },
 		'.lp-quote': { borderLeft: '3px solid var(--accent)', paddingLeft: '12px', color: 'var(--text-secondary)' },
 		'.lp-rule': { borderBottom: '1px solid var(--border-color)' },
 		'.lp-link': { color: 'var(--accent)', textDecoration: 'underline', cursor: 'text' },
 		'.lp-bullet': { color: 'var(--accent)', fontWeight: '700' },
-		'.lp-checkbox': { cursor: 'pointer', verticalAlign: 'middle', accentColor: 'var(--accent)', width: '16px', height: '16px', margin: '0 5px 0 0' },
+		'.lp-checkbox': { appearance: 'none', WebkitAppearance: 'none', position: 'relative', cursor: 'pointer', verticalAlign: 'middle', width: '16px', height: '16px', margin: '0 8px 2px 0', border: '2px solid var(--border-color)', borderRadius: '4px', background: 'var(--bg-primary)', transition: 'background 0.15s, border-color 0.15s' },
+		'.lp-checkbox:hover': { borderColor: 'var(--accent)' },
+		'.lp-checkbox:checked': { background: 'var(--accent)', borderColor: 'var(--accent)' },
+		'.lp-checkbox:checked::after': { content: '""', position: 'absolute', left: '3px', top: '0px', width: '6px', height: '10px', border: 'solid white', borderWidth: '0 2px 2px 0', transform: 'rotate(45deg)' },
+		'.lp-checkbox:disabled': { cursor: 'default' },
 		'.lp-image': { display: 'inline-block', border: '0', padding: '0', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', maxWidth: '100%', verticalAlign: 'middle' },
 		'.lp-image img': { maxWidth: '100%', maxHeight: '360px', objectFit: 'contain', borderRadius: '4px' },
 		'.lp-image:focus-visible': { outline: '2px solid var(--accent)' },

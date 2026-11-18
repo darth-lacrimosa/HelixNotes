@@ -10,6 +10,9 @@ import { editorMode, sourceMode, livePreviewMode, selectEditorMode } from '../sr
 function fixture(text) {
   const controller = new SourceController();
   controller.load(text + '\n\nCaret');
+  // Parsing is time-sliced: under load a cold first parse can stop early and hide nodes from the assertions.
+  // The finished tree is only adopted by the next transaction, which select() provides.
+  ensureSyntaxTree(controller.state, controller.state.doc.length, 5000);
   controller.select(controller.state.doc.length);
   return controller;
 }

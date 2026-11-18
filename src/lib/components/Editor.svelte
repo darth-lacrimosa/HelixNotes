@@ -7084,6 +7084,7 @@
 	}
 
 	function openPreviewLink(href: string) {
+		// Anchors, note links and files keep the destination as written; web addresses are completed below.
 		if (href.startsWith('#')) {
 			let target = href.slice(1);
 			try { target = decodeURIComponent(target); } catch { return; }
@@ -7094,6 +7095,8 @@
 		}
 		const notePath = resolveNoteHref(href);
 		if (notePath) { navigateToWikiLink(notePath, ''); return; }
+		// A bare web address such as www.example.com or example.org/page is a website, not a file.
+		if (/^(www\.[^\s/]+\.[^\s/]+|[\w-]+(\.[\w-]+)*\.(com|org|net|io|dev|app|ai|co|me|id|edu|gov)(\/\S*)?)$/i.test(href)) href = `https://${href}`;
 		if (/^(https?:|mailto:)/i.test(href)) void openUrl(href).catch(console.error);
 		else if (!/^[a-z][\w+.-]*:/i.test(href) || /^[a-z]:[\\/]/i.test(href)) {
 			void openFile(resolveHrefToAbsPath(href)).catch(console.error);
