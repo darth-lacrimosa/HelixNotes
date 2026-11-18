@@ -247,6 +247,8 @@
   --callout-example: 120, 82, 238;
   --callout-quote: 158, 158, 158;
   --callout-custom: 124, 134, 156;
+  /* Height of the strip above the note list and the editor (list header and tab bar), so their lines meet. */
+  --pane-header-h: 44px;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);

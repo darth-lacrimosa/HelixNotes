@@ -45,16 +45,18 @@
 {/if}
 
 <style>
+	/* One strip with the note list header: same height, same line underneath, square corners. */
 	.tab-bar {
 		display: flex;
-		align-items: flex-end;
-		gap: 2px;
+		align-items: stretch;
 		flex-shrink: 0;
-		padding: 4px 8px 0;
+		box-sizing: border-box;
+		height: var(--pane-header-h);
 		overflow-x: auto;
+		overflow-y: hidden;
 		scrollbar-width: none;
-		background: var(--bg-secondary);
-		border-bottom: 1px solid var(--border-light);
+		background: var(--bg-primary);
+		box-shadow: inset 0 -1px 0 var(--border-light);
 	}
 	.tab-bar::-webkit-scrollbar { display: none; }
 	.tab {
@@ -63,24 +65,19 @@
 		gap: 6px;
 		flex: 0 1 180px;
 		min-width: 96px;
-		height: 30px;
-		padding: 0 6px 0 12px;
+		padding: 0 6px 0 14px;
 		box-sizing: border-box;
-		border: 1px solid transparent;
-		border-bottom: none;
-		border-radius: 6px 6px 0 0;
+		border-right: 1px solid var(--border-light);
 		color: var(--text-secondary);
 		font-size: 13px;
 		cursor: pointer;
 		user-select: none;
 	}
 	.tab:hover { background: var(--bg-hover); color: var(--text-primary); }
+	/* The open tab takes the editor background and covers the line beneath it, so it joins the page below. */
 	.tab.active {
 		background: var(--bg-editor, var(--bg-primary));
 		color: var(--text-primary);
-		border-color: var(--border-light);
-		box-shadow: inset 0 2px 0 var(--accent);
-		margin-bottom: -1px;
 	}
 	.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 	.title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -94,7 +91,7 @@
 		flex: 0 0 auto;
 		padding: 0;
 		border: none;
-		border-radius: 4px;
+		border-radius: 2px;
 		background: none;
 		color: inherit;
 		cursor: pointer;
@@ -102,7 +99,8 @@
 	}
 	.tab:hover .close, .tab.active .close, .close:focus-visible { opacity: 0.7; }
 	.close:hover { opacity: 1; background: var(--bg-hover); }
-	.dot { display: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+	.tab:hover .close:hover { background: var(--bg-tertiary, var(--bg-hover)); }
+	.dot { display: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 	/* An unsaved note shows a dot in place of the cross until the pointer is over it. */
 	.close.dirty { opacity: 1; }
 	.close.dirty svg { display: none; }

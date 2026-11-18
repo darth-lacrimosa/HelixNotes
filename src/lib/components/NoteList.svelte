@@ -1930,6 +1930,14 @@
 		flex-shrink: 0;
 	}
 
+	/* Same height as the editor's tab bar, so the strip reads as one line across both panes. */
+	.note-list:not(.mobile) .list-header {
+		box-sizing: border-box;
+		height: var(--pane-header-h);
+		padding-top: 0;
+		padding-bottom: 0;
+	}
+
 	.list-title {
 		display: inline-flex;
 		align-items: center;
