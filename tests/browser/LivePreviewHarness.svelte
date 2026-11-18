@@ -11,6 +11,7 @@
 	let dark = $state(false);
 	$effect(() => { document.documentElement.dataset.previewDark = String(dark); });
 	const opened: string[] = [];
+	const edited: string[] = [];
 	const controller = new SourceController((_changes, edited) => { if (edited) edits++; });
 	controller.load(initial);
 	selectEditorMode('live');
@@ -22,9 +23,10 @@
 	const image = canvas.toDataURL();
 	const resolveImage = () => image;
 	const openLink = (href: string) => { opened.push(href); };
+	const editDrawing = (href: string) => { edited.push(href); };
 	Object.assign(window, { previewFixture: {
 		initial,
-		snapshot: () => ({ text: controller.state.doc.toString(), anchor: controller.state.selection.main.anchor, head: controller.state.selection.main.head, edits, opened: [...opened], view: !!controller.view }),
+		snapshot: () => ({ text: controller.state.doc.toString(), anchor: controller.state.selection.main.anchor, head: controller.state.selection.main.head, edits, opened: [...opened], edited: [...edited], view: !!controller.view }),
 		select: (from: number, to = from) => { controller.select(from, to); controller.focus(); },
 		mode: selectEditorMode,
 		insert: (text: string) => controller.replace(text, controller.state.selection.main.from, controller.state.selection.main.to),
@@ -42,7 +44,7 @@
 <main>
 	<header><span>Live Preview regression fixture</span><EditorModePicker id="fixture-mode" /></header>
 	<section>
-		<SourceEditor {controller} {readonly} visible={$sourceMode} preview={$livePreviewMode} {resolveImage} {openLink} {context} numbers />
+		<SourceEditor {controller} {readonly} visible={$sourceMode} preview={$livePreviewMode} {resolveImage} {openLink} {editDrawing} {context} numbers />
 	</section>
 </main>
 

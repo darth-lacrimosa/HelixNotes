@@ -276,6 +276,7 @@
   "ui.drawing": "Рисунок",
   "ui.edit_drawing": "Редактировать рисунок",
   "ui.discard_drawing_changes": "Отменить изменения в этом рисунке?",
+  "ui.drawing_open_failed": "Не удалось открыть рисунок.",
   "ui.rename": "Переименовать",
   "ui.duplicate_note": "Создать копию заметки",
   "ui.unfile_note": "Убрать заметку из блокнота",

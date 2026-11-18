@@ -527,6 +527,7 @@
   "ui.drawing": "Drawing",
   "ui.edit_drawing": "Edit Drawing",
   "ui.discard_drawing_changes": "Discard the changes to this drawing?",
+  "ui.drawing_open_failed": "Could not open the drawing.",
   "ui.rename": "Rename",
   "ui.duplicate_note": "Duplicate Note",
   "ui.unfile_note": "Unfile Note",

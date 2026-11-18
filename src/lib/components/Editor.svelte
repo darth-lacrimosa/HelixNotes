@@ -778,6 +778,15 @@
 	// A drawing is a `.excalidraw.svg` picture in the vault that a note embeds like any image. The canvas runs in a
 	// frame of its own that exists only while the overlay is open.
 	let drawing = $state<{ href: string | null; svg: string | null } | null>(null);
+	// A short message when a drawing could not be opened; the canvas reports its own errors while it is open.
+	let drawingNotice = $state('');
+	let drawingNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+	function showDrawingNotice(message: string) {
+		drawingNotice = message;
+		if (drawingNoticeTimer) clearTimeout(drawingNoticeTimer);
+		drawingNoticeTimer = setTimeout(() => { drawingNotice = ''; }, 8000);
+	}
+
 	function openNewDrawing() {
 		if (!$activeNotePath || $readOnly || $viewerNote || trashPreview) return;
 		drawing = { href: null, svg: null };
@@ -790,6 +799,7 @@
 			drawing = { href, svg: new TextDecoder().decode(bytes) };
 		} catch (e) {
 			console.error('Failed to open the drawing:', e);
+			showDrawingNotice(`${$ui('ui.drawing_open_failed')} ${e instanceof Error ? e.message : String(e)}`);
 		}
 	}
 
@@ -8844,6 +8854,10 @@
 	{/if}
 	<input type="file" id="insert-file-input" style="display:none" onchange={handleAssetInput} />
 
+	{#if drawingNotice}
+		<div class="drawing-notice" role="alert">{drawingNotice}</div>
+	{/if}
+
 	{#if drawing}
 		<DrawOverlay svg={drawing.svg} dark={document.documentElement.classList.contains('dark')} language={$appConfig?.language} onsave={saveDrawing} oncancel={() => { drawing = null; source.focus(); }} />
 	{/if}
@@ -9923,6 +9937,23 @@
 		padding: 2px 8px;
 		border-radius: 4px;
 		pointer-events: none;
+	}
+
+	.drawing-notice {
+		position: fixed;
+		right: 16px;
+		bottom: 56px;
+		z-index: 2600;
+		max-width: min(420px, calc(100vw - 32px));
+		padding: 10px 14px;
+		border: 1px solid var(--border-color);
+		border-left: 3px solid var(--danger, #e53e3e);
+		border-radius: 3px;
+		background: var(--bg-primary);
+		color: var(--text-primary);
+		font-size: 13px;
+		box-shadow: var(--shadow-md);
+		overflow-wrap: anywhere;
 	}
 
 	.save-error {

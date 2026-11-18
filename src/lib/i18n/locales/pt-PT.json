@@ -507,6 +507,7 @@
   "ui.drawing": "Desenho",
   "ui.edit_drawing": "Editar desenho",
   "ui.discard_drawing_changes": "Descartar as alterações a este desenho?",
+  "ui.drawing_open_failed": "Não foi possível abrir o desenho.",
   "ui.rename": "Mudar nome",
   "ui.duplicate_note": "Duplicar nota",
   "ui.unfile_note": "Retirar nota do caderno",

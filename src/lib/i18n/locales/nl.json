@@ -507,6 +507,7 @@
   "ui.drawing": "Tekening",
   "ui.edit_drawing": "Tekening bewerken",
   "ui.discard_drawing_changes": "Wijzigingen aan deze tekening verwerpen?",
+  "ui.drawing_open_failed": "De tekening kon niet worden geopend.",
   "ui.rename": "Hernoemen",
   "ui.duplicate_note": "Notitie dupliceren",
   "ui.unfile_note": "Notitie uit notitieboek halen",

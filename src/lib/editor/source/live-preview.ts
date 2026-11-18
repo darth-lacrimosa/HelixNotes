@@ -268,7 +268,8 @@ class PreviewImage extends WidgetType {
 		button.onmousedown = event => event.preventDefault();
 		button.onclick = () => { view.dispatch({ selection: EditorSelection.single(Number(button.dataset.sourceFrom), Number(button.dataset.sourceTo)), scrollIntoView: true }); view.focus(); };
 		button.append(image, fallback); image.src = this.src;
-		const drawing = this.drawing;
+		// A read-only note cannot change its drawings, so they get no edit controls.
+		const drawing = view.state.readOnly ? null : this.drawing;
 		if (drawing) {
 			button.classList.add('lp-drawing');
 			const edit = document.createElement('span');
@@ -276,8 +277,19 @@ class PreviewImage extends WidgetType {
 			edit.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>';
 			edit.onclick = (event) => { event.stopPropagation(); event.preventDefault(); drawing.edit?.(drawing.href); };
 			button.append(edit);
-			// A double click is the quick way in: a single click still selects the Markdown.
-			button.ondblclick = (event) => { event.preventDefault(); drawing.edit?.(drawing.href); };
+			// A double click is the quick way in. The first click of a pair would select the Markdown, which swaps
+			// the picture for its source before the second click arrives, so selecting waits a moment for it.
+			let selecting: ReturnType<typeof setTimeout> | null = null;
+			const select = button.onclick!;
+			button.onclick = (event) => {
+				if (selecting) clearTimeout(selecting);
+				selecting = setTimeout(() => { selecting = null; if (button.isConnected) select.call(button, event); }, 260);
+			};
+			button.ondblclick = (event) => {
+				event.preventDefault();
+				if (selecting) { clearTimeout(selecting); selecting = null; }
+				drawing.edit?.(drawing.href);
+			};
 		}
 		return button;
 	}

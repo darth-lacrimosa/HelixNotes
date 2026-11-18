@@ -507,6 +507,7 @@
   "ui.drawing": "Disegno",
   "ui.edit_drawing": "Modifica disegno",
   "ui.discard_drawing_changes": "Annullare le modifiche a questo disegno?",
+  "ui.drawing_open_failed": "Impossibile aprire il disegno.",
   "ui.rename": "Rinomina",
   "ui.duplicate_note": "Duplica nota",
   "ui.unfile_note": "Rimuovi nota dal taccuino",

@@ -507,6 +507,7 @@
   "ui.drawing": "Zeichnung",
   "ui.edit_drawing": "Zeichnung bearbeiten",
   "ui.discard_drawing_changes": "Änderungen an dieser Zeichnung verwerfen?",
+  "ui.drawing_open_failed": "Die Zeichnung konnte nicht geöffnet werden.",
   "ui.rename": "Umbenennen",
   "ui.duplicate_note": "Notiz duplizieren",
   "ui.unfile_note": "Notiz aus Notizbuch entfernen",
