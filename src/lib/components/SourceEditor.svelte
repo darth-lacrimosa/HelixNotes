@@ -58,6 +58,10 @@
 	}
 	.source-editor.with-line-numbers { max-width: none; }
 
+	/* A cleaner page: the note scrolls with the wheel, touchpad and keyboard, without a visible bar. */
+	.source-editor :global(.cm-scroller) { scrollbar-width: none; }
+	.source-editor :global(.cm-scroller::-webkit-scrollbar) { display: none; }
+
 	/* Code colours: the same palette as the rich-text editor (light, then dark). */
 	.source-editor {
 		--hl-keyword: #d73a49; --hl-string: #032f62; --hl-number: #005cc5; --hl-comment: #6a737d; --hl-title: #6f42c1;

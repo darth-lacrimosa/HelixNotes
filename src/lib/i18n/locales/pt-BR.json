@@ -503,6 +503,7 @@
   "ui.split_view": "Visualização dividida",
   "ui.close_split_view": "Fechar visualização dividida",
   "ui.open_in_split_view": "Abrir em visualização dividida",
+  "ui.copy_note": "Copiar nota",
   "ui.rename": "Renomear",
   "ui.duplicate_note": "Duplicar nota",
   "ui.unfile_note": "Retirar nota do caderno",

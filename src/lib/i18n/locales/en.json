@@ -523,6 +523,7 @@
   "ui.split_view": "Split View",
   "ui.close_split_view": "Close Split View",
   "ui.open_in_split_view": "Open in Split View",
+  "ui.copy_note": "Copy Note",
   "ui.rename": "Rename",
   "ui.duplicate_note": "Duplicate Note",
   "ui.unfile_note": "Unfile Note",

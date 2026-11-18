@@ -712,6 +712,25 @@
 		editor.chain().focus().insertContent(text).run();
 	}
 
+	let noteCopied = $state(false);
+	let noteCopiedTimer: ReturnType<typeof setTimeout> | null = null;
+
+	/** Copy the whole note, as Markdown, to the clipboard. */
+	export async function copyNote(): Promise<boolean> {
+		if (!$activeNotePath) return false;
+		const text = $sourceMode ? source.state.doc.toString() : ($activeNote?.content ?? '');
+		try {
+			await copyTextToClipboard(text);
+		} catch (e) {
+			console.error('Failed to copy the note:', e);
+			return false;
+		}
+		noteCopied = true;
+		if (noteCopiedTimer) clearTimeout(noteCopiedTimer);
+		noteCopiedTimer = setTimeout(() => { noteCopied = false; }, 1500);
+		return true;
+	}
+
 	/**
 	 * The text column is narrower than the pane, so its sides are empty space. A click there belongs to the
 	 * note: it puts the caret on the nearest line and keeps the focus in the editor, so keys such as Ctrl+A
@@ -8181,6 +8200,23 @@
 				>
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+					</svg>
+				</button>
+
+				<button
+					class="icon-btn"
+					class:active={noteCopied}
+					disabled={!$activeNotePath || trashPreview}
+					onclick={() => void copyNote()}
+					title={`${$ui("ui.copy_note")} (${modKey}+Shift+C)`}
+					aria-label={$ui("ui.copy_note")}
+				>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						{#if noteCopied}
+							<polyline points="20 6 9 17 4 12"/>
+						{:else}
+							<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+						{/if}
 					</svg>
 				</button>
 

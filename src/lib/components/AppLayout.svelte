@@ -1009,6 +1009,9 @@
 				case 'save':
 					editor?.forceSave();
 					return;
+				case 'copy-note':
+					void editor?.copyNote();
+					return;
 				case 'close-tab':
 					closeTabAt(get(tabsState).active);
 					return;

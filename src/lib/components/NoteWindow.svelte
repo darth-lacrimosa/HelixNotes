@@ -103,6 +103,9 @@
 		if (action === 'save') {
 			e.preventDefault();
 			editor?.forceSave();
+		} else if (action === 'copy-note') {
+			e.preventDefault();
+			void editor?.copyNote();
 		} else if (action === 'toggle-source') {
 			e.preventDefault();
 			selectEditorMode($editorMode === 'source' ? 'live' : 'source');

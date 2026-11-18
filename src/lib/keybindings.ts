@@ -30,6 +30,7 @@ export const ACTIONS: ActionDef[] = [
   { id: "replace-in-note", label: "Replace in note", group: "General", default: isMac ? { mod: true, alt: true, code: "KeyF" } : { mod: true, code: "KeyH" } },
   { id: "search-vault", label: "Search vault", group: "General", default: { mod: true, shift: true, code: "KeyF" } },
   { id: "open-new-window", label: "Open note in new window", group: "General", default: { mod: true, shift: true, code: "KeyW" } },
+  { id: "copy-note", label: "Copy whole note", group: "General", default: { mod: true, shift: true, code: "KeyC" } },
 
   { id: "toggle-sidebar", label: "Toggle sidebar", group: "Interface", default: { mod: true, code: "Backslash" } },
   { id: "toggle-notelist", label: "Toggle notes list", group: "Interface", default: { mod: true, shift: true, code: "Backslash" } },
