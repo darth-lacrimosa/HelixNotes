@@ -19,7 +19,7 @@
 	import SourceToolbar from './SourceToolbar.svelte';
 	import { resolveToolbarLayout } from '$lib/editor/toolbar';
 	import type { ToolbarAction } from '$lib/editor/source/toolbar-actions';
-	import { splitState, setSplitVault } from '$lib/stores/split';
+	import { splitState, setSplitVault, closeSplit } from '$lib/stores/split';
 	import { tabsState, setTabsVault } from '$lib/stores/tabs';
 	import { closeTab, stepTab } from '$lib/utils/tabs';
 	import VaultSwitcher from './VaultSwitcher.svelte';
@@ -223,6 +223,17 @@
 			input.oncancel = () => resolve(null);
 			input.click();
 		});
+	}
+
+	/** Close the left pane of a split: the note on the right becomes the open note and the split ends. */
+	async function closeMainPane() {
+		const state = get(splitState);
+		if (!state || !splitPane) return;
+		// Save the right pane first so the main editor reads what was typed there.
+		if (!(await splitPane.flush())) return;
+		if (!(await selectNoteFromSwitcher(state.path))) return;
+		closeSplit();
+		activePane = 'main';
 	}
 
 	async function runToolbarAction(action: ToolbarAction) {
@@ -1046,8 +1057,10 @@
 					void editor?.copyNote();
 					return;
 				case 'close-tab':
-					// Closes what you are working in: the split pane when that is the active one, else the tab.
+					// Closes what you are working in. Right pane: the split. Left pane: a tab, and when it holds only
+					// one tab while a split is open, the left pane itself, leaving the right note alone in the middle.
 					if (activePane === 'split' && $splitState && splitPane) void splitPane.close();
+					else if ($splitState && get(tabsState).tabs.length <= 1) void closeMainPane();
 					else closeTabAt(get(tabsState).active);
 					return;
 				case 'next-tab':
