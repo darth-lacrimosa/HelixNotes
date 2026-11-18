@@ -1186,6 +1186,9 @@
 		await Promise.all([...toDelete].map(p => permanentDelete(ownerVault!, p).catch(e => console.error('Failed to delete:', p, e))));
 	}
 
+	/** Whether the last mouse press was inside the list; keyboard focus rests on the page body after a click on empty space. */
+	let pointerInList = false;
+
 	function handleWindowClick(event: MouseEvent) {
 		// Opening a submenu can detach the clicked button before window sees it.
 		if (event.composedPath().some((node) => node instanceof Element && node.matches('.context-menu, .sort-menu'))) return;
@@ -1220,17 +1223,19 @@
 	}
 </script>
 
-<svelte:window onclick={handleWindowClick} onkeydown={(e) => {
+<svelte:window onclick={handleWindowClick} onmousedowncapture={(e) => { pointerInList = !!(e.target as Element | null)?.closest?.('.note-list'); }} onkeydown={(e) => {
 	if (e.key === 'Escape' && selectedPaths.size > 0) {
 		clearSelection();
 	}
 	if ((e.ctrlKey || e.metaKey) && e.key === 'a' && $sortedNotes.length > 0) {
 		// Only select all notes when Ctrl+A is not meant for a text field or either editor
-		// (the source editor is CodeMirror, and a read-only editor is not contenteditable).
+		// (the source editor is CodeMirror, and a read-only editor is not contenteditable), and the
+		// list is what the user last pointed at: empty space beside the note must not select the list.
 		const target = e.target as HTMLElement | null;
 		const tag = target?.tagName;
+		const inList = !!target?.closest('.note-list') || (pointerInList && (target === document.body || !target));
 		if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT' && !target?.isContentEditable
-			&& !target?.closest('.ProseMirror, .cm-editor')) {
+			&& !target?.closest('.ProseMirror, .cm-editor') && inList) {
 			e.preventDefault();
 			selectedPaths = new Set($sortedNotes.map(n => n.path));
 		}

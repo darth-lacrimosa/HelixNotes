@@ -712,6 +712,23 @@
 		editor.chain().focus().insertContent(text).run();
 	}
 
+	/**
+	 * The text column is narrower than the pane, so its sides are empty space. A click there belongs to the
+	 * note: it puts the caret on the nearest line and keeps the focus in the editor, so keys such as Ctrl+A
+	 * are not taken by whatever else is on the page.
+	 */
+	function focusEditorFromMargin(event: MouseEvent) {
+		if (!$sourceMode || event.button !== 0 || event.target !== event.currentTarget) return;
+		const view = source.view;
+		if (!view) return;
+		const box = view.contentDOM.getBoundingClientRect();
+		const x = Math.min(Math.max(event.clientX, box.left + 1), box.right - 1);
+		const position = view.posAtCoords({ x, y: event.clientY }, false);
+		event.preventDefault();
+		if (!$readOnly) source.select(position);
+		source.focus();
+	}
+
 	/** Insert menu of the Markdown (Live / Source) toolbar. Attachments reuse the rich-text upload path. */
 	function insertFromSourceToolbar(kind: 'image' | 'file' | 'datetime') {
 		if (kind === 'image') { openAssetPicker('insert-image-input'); return; }
@@ -8408,7 +8425,8 @@
 				{/if}
 			{/if}
 			<div class="editor-body-row" class:reviewing-history={showHistory}>
-			<div class="editor-body" class:source-body={$sourceMode} class:history-hidden={showHistory} onscroll={scheduleOutlineActive}>
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="editor-body" class:source-body={$sourceMode} class:history-hidden={showHistory} onscroll={scheduleOutlineActive} onmousedown={focusEditorFromMargin}>
 				{#if isMobile}
 					<SourceEditor controller={source} readonly={showHistory || $readOnly || !!$viewerNote || externalOperationBusy} visible={$sourceMode} preview={$livePreviewMode} resolveImage={resolveImageSrc} openLink={openPreviewLink} context={sourceAssetContext} mobile />
 					<!-- svelte-ignore a11y_no_static_element_interactions -->

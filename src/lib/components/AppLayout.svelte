@@ -201,7 +201,7 @@
 	activateVaultData(ownerVault, ownerBookmark, true);
 	const releaseTabs = ownerVault ? setTabsVault(ownerVault) : () => {};
 	onDestroy(releaseTabs);
-	const releaseSplit = ownerVault ? setSplitVault(ownerVault) : () => {};
+	const releaseSplit = setSplitVault();
 	onDestroy(releaseSplit);
 	let splitPane = $state<SplitPane>();
 	let stateReady = false;
