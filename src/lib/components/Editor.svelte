@@ -14,7 +14,6 @@
 	import Link from '@tiptap/extension-link';
 	import Image from '@tiptap/extension-image';
 	import Highlight from '@tiptap/extension-highlight';
-	import Typography from '@tiptap/extension-typography';
 	import Underline from '@tiptap/extension-underline';
 	import Subscript from '@tiptap/extension-subscript';
 	import Superscript from '@tiptap/extension-superscript';
@@ -197,7 +196,7 @@
 			scheduleOutline();
 			scheduleOutlineActive();
 		}
-	}, { paste: handleFilePaste, drop: handleFileDrop, scroll: scheduleOutlineActive });
+	}, { paste: event => handleFilePaste(event, false), drop: handleFileDrop, scroll: scheduleOutlineActive });
 	const sourceAssetContext = $derived(`${$activeNotePath ?? ''}|${currentNoteAssetRoot() ?? ''}`);
 	let loadedPath = '';
 	type NoteScrollPosition = { rich: number; source: number };
@@ -5592,6 +5591,8 @@
 		editor = new Editor({
 			element: editorElement,
 			editable: !$readOnly,
+			// Plain-text copies keep one line per paragraph, like Obsidian; the default is a blank line between blocks.
+			coreExtensionOptions: { clipboardTextSerializer: { blockSeparator: '\n' } },
 			extensions: [
 				CopyLineSpacing,
 				MixedListShortcuts,
@@ -5607,7 +5608,6 @@
 				Link.configure({ openOnClick: false, HTMLAttributes: { class: 'editor-link' }, isAllowedUri: (url, ctx) => ctx.defaultValidate(url) || !url.startsWith('javascript:'), shouldAutoLink: (url) => /^https?:\/\//.test(url) }),
 				CustomImage.configure({ inline: true, HTMLAttributes: { class: 'editor-image', crossorigin: 'anonymous' } }),
 				Highlight.configure({ multicolor: true }),
-				Typography,
 				Underline,
 				Subscript,
 				Superscript,
@@ -7191,7 +7191,9 @@
 		return true;
 	}
 
-	function handleFilePaste(event: ClipboardEvent): boolean {
+	// `renderMarkdown` is false for the Source/Live CodeMirror editor: its document already is Markdown,
+	// so pasted text must land there as-is, never in the (hidden) rich-text editor.
+	function handleFilePaste(event: ClipboardEvent, renderMarkdown = true): boolean {
 		const items = event.clipboardData?.items;
 		if (!items) return false;
 		for (const item of Array.from(items)) {
@@ -7216,7 +7218,7 @@
 			insertClipboardImage();
 			return true;
 		}
-		return pasteMarkdown(event, hasText, html);
+		return renderMarkdown && pasteMarkdown(event, hasText, html);
 	}
 
 	/**
